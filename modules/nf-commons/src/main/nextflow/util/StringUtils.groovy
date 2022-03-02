@@ -20,18 +20,28 @@ package nextflow.util
 import java.util.regex.Pattern
 
 import groovy.transform.CompileStatic
-
 /**
- * String helper routines
+ * Path string helper routines
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+@Deprecated
 @CompileStatic
 class StringUtils {
 
     static final public Pattern URL_PROTOCOL = ~/^([a-zA-Z0-9]*):\\/\\/(.+)/
 
+    /**
+     * See also {@link nextflow.file.FileHelper#getUrlProtocol(java.lang.String)}
+     *
+     * @param str A string URI path
+     * @return the URI protocol if provided or {@code null} otherwise
+     */
     static String getUrlProtocol(String str) {
+        if( str==null )
+            return null
+        if( str.startsWith('file:/') )
+            return 'file'
         final m = URL_PROTOCOL.matcher(str)
         return m.matches() ? m.group(1) : null
     }
