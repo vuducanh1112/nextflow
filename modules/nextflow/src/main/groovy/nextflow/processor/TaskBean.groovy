@@ -89,6 +89,9 @@ class TaskBean implements Serializable, Cloneable {
 
     List<String> outputFiles
 
+    List<String> inputStreams
+    List<String> outputStreams
+
     String stageInMode
 
     String stageOutMode
@@ -150,7 +153,9 @@ class TaskBean implements Serializable, Cloneable {
         this.binDir = task.getProcessor().getExecutor().getBinDir()
         this.stageInMode = task.config.stageInMode
         this.stageOutMode = task.config.stageOutMode
-
+        // streams
+        this.inputStreams = task.getInputStreamNames()
+        this.outputStreams = task.getOutputStreamNames()
     }
 
     @Override
