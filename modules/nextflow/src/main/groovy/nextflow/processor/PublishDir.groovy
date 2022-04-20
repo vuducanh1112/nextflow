@@ -17,9 +17,6 @@
 
 package nextflow.processor
 
-import nextflow.NF
-import nextflow.exception.ProcessException
-
 import java.nio.file.FileAlreadyExistsException
 import java.nio.file.FileSystem
 import java.nio.file.FileSystems
@@ -37,6 +34,7 @@ import groovy.transform.PackageScope
 import groovy.transform.ToString
 import groovy.util.logging.Slf4j
 import nextflow.Global
+import nextflow.NF
 import nextflow.Session
 import nextflow.extension.FilesEx
 import nextflow.file.FileHelper
@@ -113,17 +111,11 @@ class PublishDir {
     @Lazy
     private ExecutorService threadPool = (Global.session as Session).getFileTransferThreadPool()
 
-    void setPath( Closure obj ) {
-        setPath( obj.call() as Path )
-    }
-
-    void setPath( String str ) {
-        nullPathWarn = checkNull(str)
-        setPath(str as Path)
-    }
-
-    void setPath( Path obj ) {
-        this.path = obj.complete()
+    void setPath( def value ) {
+        final resolved = value instanceof Closure ? value.call() : value
+        if( resolved instanceof String || resolved instanceof GString )
+            nullPathWarn = checkNull(resolved.toString())
+        this.path = FileHelper.toCanonicalPath(resolved)
     }
 
     void setMode( String str ) {
