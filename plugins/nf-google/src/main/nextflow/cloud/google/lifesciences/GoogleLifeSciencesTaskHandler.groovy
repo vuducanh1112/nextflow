@@ -354,6 +354,7 @@ class GoogleLifeSciencesTaskHandler extends TaskHandler {
         req.keepAliveOnFailure = executor.config.keepAliveOnFailure
         req.timeout = task.config.getTime() ? "${task.config.getTime().toSeconds()}s" : null
 
+        req.stickers = task.config?.getStickers()  ?: Collections.emptyMap() as Map<String,String>
         return req
     }
 

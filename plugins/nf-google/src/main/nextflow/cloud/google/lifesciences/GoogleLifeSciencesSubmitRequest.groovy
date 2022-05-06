@@ -75,4 +75,6 @@ class GoogleLifeSciencesSubmitRequest {
     boolean keepAliveOnFailure
 
     String timeout
+
+    Map<String, String> stickers = [:]
 }
