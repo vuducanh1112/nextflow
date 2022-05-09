@@ -77,4 +77,5 @@ class GoogleLifeSciencesSubmitRequest {
     String timeout
 
     Map<String, String> stickers = [:]
+    Map<String, String> resourceLabels = [:]
 }

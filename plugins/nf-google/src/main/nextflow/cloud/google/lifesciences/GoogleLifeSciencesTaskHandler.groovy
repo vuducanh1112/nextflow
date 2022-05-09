@@ -355,6 +355,7 @@ class GoogleLifeSciencesTaskHandler extends TaskHandler {
         req.timeout = task.config.getTime() ? "${task.config.getTime().toSeconds()}s" : null
 
         req.stickers = task.config?.getStickers()  ?: Collections.emptyMap() as Map<String,String>
+        req.resourceLabels = task.config?.getResourceLabels()  ?: Collections.emptyMap() as Map<String,String>
         return req
     }
 
