@@ -704,7 +704,7 @@ class FunctionalTests extends Specification {
                 process foo {
                     label 'bravo'
                     label 'gamma'
-                    label 'department=floor 3' 
+                    label 'department=floor3' 
                     label region:'eu-west-1' 
                     script:
                     'echo hello'
@@ -717,10 +717,10 @@ class FunctionalTests extends Specification {
         def processor = runner.scriptObj.taskProcessor
         then:
         processor instanceof TaskProcessor
-        processor.config.label.size() == 2
-        processor.config.label == [ 'bravo', 'gamma' ]
-        processor.config.resourceLabels.size() == 2
-        processor.config.resourceLabels == [ department: 'floor 3' , region: 'eu-west-1']
+        processor.config.label.size() == 3
+        processor.config.label == [ 'bravo', 'gamma', 'department=floor3' ]
+        processor.config.getResourceLabels().size() == 2
+        processor.config.getResourceLabels() == [ department: 'floor3' , region: 'eu-west-1']
     }
 
     def 'should create process with repeater'() {

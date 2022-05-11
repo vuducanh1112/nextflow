@@ -31,6 +31,9 @@ import nextflow.executor.BashWrapperBuilder
 import nextflow.processor.ConfigList
 import nextflow.processor.ErrorStrategy
 import nextflow.processor.TaskConfig
+
+import java.util.stream.Collectors
+
 import static nextflow.util.CacheHelper.HashMode
 import nextflow.script.params.*
 
@@ -672,7 +675,7 @@ class ProcessConfig implements Map<String,Object>, Cloneable {
         return LABEL_REGEXP.matcher(left).matches() && LABEL_REGEXP.matcher(right).matches()
     }
 
-    protected boolean isResourceLabelsSyntax(String lbl){
+    static protected boolean isResourceLabelsSyntax(String lbl){
         def p = lbl.count('=')
         if( p != 1)
             return false
@@ -682,7 +685,7 @@ class ProcessConfig implements Map<String,Object>, Cloneable {
         return LABEL_REGEXP.matcher(left).matches()
     }
 
-    protected Map<String,String> parseAsMap(String lbl){
+    static protected Map<String,String> parseAsMap(String lbl){
         def p = lbl.count('=')
         if( p != 1)
             return Collections.emptyMap() as Map<String,String>
@@ -705,11 +708,6 @@ class ProcessConfig implements Map<String,Object>, Cloneable {
      */
     ProcessConfig label(String lbl) {
         if( !lbl ) return this
-
-        if( isResourceLabelsSyntax(lbl) ){
-            Map<String,Object> map = parseAsMap(lbl)
-            return label(map)
-        }
 
         // -- check that label has a valid syntax
         if( !isValidLabel(lbl) )
@@ -758,7 +756,14 @@ class ProcessConfig implements Map<String,Object>, Cloneable {
     }
 
     Map<String,Object> getResourceLabels() {
-        (configProperties.get('resourceLabels') ?: Collections.emptyMap()) as Map<String, Object>
+        Map<String,Object> ret = getLabels().findAll({
+            isResourceLabelsSyntax(it)
+        }).inject([:],{ Map map, String item->
+            map.putAll(parseAsMap(item))
+            map
+        })
+        ret.putAll((configProperties.get('resourceLabels') ?: Collections.emptyMap()) as Map<String, Object>)
+        ret
     }
 
     ProcessConfig secret(String name) {
