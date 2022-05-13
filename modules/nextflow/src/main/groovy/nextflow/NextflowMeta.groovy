@@ -61,6 +61,7 @@ class NextflowMeta {
     static class Features implements Flags {
         volatile float dsl
         boolean strict
+        boolean labelsPropagation
     }
 
     final VersionNumber version
@@ -94,6 +95,9 @@ class NextflowMeta {
             result.dsl = 2i
         if( isStrictModeEnabled() )
             result.strict = true
+        if( isLabelsPropagationEnabled()) {
+            result.labelsPropagation = true
+        }
         return result
     }
 
@@ -157,6 +161,14 @@ class NextflowMeta {
 
     void strictMode(boolean mode) {
         enable.strict = mode
+    }
+
+    boolean isLabelsPropagationEnabled() {
+        return enable.labelsPropagation
+    }
+
+    void labelsPropagation(boolean labelsPropagation) {
+        enable.labelsPropagation = labelsPropagation
     }
 
     static String checkDslMode(String script) {

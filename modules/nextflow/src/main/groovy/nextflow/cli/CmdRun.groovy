@@ -353,6 +353,15 @@ class CmdRun extends CmdBase implements HubOptions {
         // -- determine dsl mode
         final dsl = detectDslMode(config, scriptFile.main.text, sysEnv)
         NextflowMeta.instance.enableDsl(dsl)
+
+        // -- check if labels propagation feature
+        final defLabelsPropagation = sysEnv.get('NXF_ENABLE_LABELS_PROPAGATION') ?: false
+        final labelsPropagation = config.navigate('nextflow.enable.labelsPropagation', defLabelsPropagation)
+        if( labelsPropagation ) {
+            log.debug "Enabling nextflow labelsPropagation feature"
+            NextflowMeta.instance.labelsPropagation(true)
+        }
+
         // -- show launch info
         final ver = NF.dsl2 ? DSL2 : DSL1
         final repo = scriptFile.repository ?: scriptFile.source

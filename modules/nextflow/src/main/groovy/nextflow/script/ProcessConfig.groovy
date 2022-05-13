@@ -756,9 +756,13 @@ class ProcessConfig implements Map<String,Object>, Cloneable {
     }
 
     Map<String,Object> getResourceLabels() {
-        Map<String,Object> ret = getLabels().findAll({
+        if( !NF.isLabelsPropagationEnabled()) {
+            return Collections.emptyMap()
+        }
+        Map<String,Object> ret = [:]
+        ret.putAll getLabels().findAll({
             isResourceLabelsSyntax(it)
-        }).inject([:],{ Map map, String item->
+        }).inject([:], { Map map, String item ->
             map.putAll(parseAsMap(item))
             map
         })

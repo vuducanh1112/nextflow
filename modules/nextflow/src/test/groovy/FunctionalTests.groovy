@@ -17,6 +17,7 @@
 
 
 import nextflow.exception.AbortRunException
+import nextflow.NextflowMeta
 import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Timeout
@@ -711,6 +712,7 @@ class FunctionalTests extends Specification {
                 }
                 '''
 
+        NextflowMeta.instance.labelsPropagation(true)
         def cfg = new ConfigParser().parse(CONFIG)
         def runner = new TestScriptRunner(cfg)
         runner.setScript(script).execute()
@@ -721,6 +723,39 @@ class FunctionalTests extends Specification {
         processor.config.label == [ 'bravo', 'gamma', 'department=floor3' ]
         processor.config.getResourceLabels().size() == 2
         processor.config.getResourceLabels() == [ department: 'floor3' , region: 'eu-west-1']
+    }
+
+    def 'should NOT set directive label when they are resourceLabels but is feature is disabled' () {
+
+        when:
+        def CONFIG = '''
+            process {
+                executor = 'nope'
+                label = 'alpha'
+            }
+            '''
+
+        def script = '''   
+                process foo {
+                    label 'bravo'
+                    label 'gamma'
+                    label 'department=floor3' 
+                    label region:'eu-west-1' 
+                    script:
+                    'echo hello'
+                }
+                '''
+
+        NextflowMeta.instance.labelsPropagation(false)
+        def cfg = new ConfigParser().parse(CONFIG)
+        def runner = new TestScriptRunner(cfg)
+        runner.setScript(script).execute()
+        def processor = runner.scriptObj.taskProcessor
+        then:
+        processor instanceof TaskProcessor
+        processor.config.label.size() == 3
+        processor.config.label == [ 'bravo', 'gamma', 'department=floor3' ]
+        processor.config.getResourceLabels().size() == 0
     }
 
     def 'should create process with repeater'() {
