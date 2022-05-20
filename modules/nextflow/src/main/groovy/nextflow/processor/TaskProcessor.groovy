@@ -1503,6 +1503,10 @@ class TaskProcessor {
                 def path = param.glob ? splitter.strip(filePattern) : filePattern
                 def file = workDir.resolve(path)
                 def exists = param.followLinks ? file.exists() : file.exists(LinkOption.NOFOLLOW_LINKS)
+                if( !exists && param.allowNull){
+                    file = workDir.resolve(Nextflow.randomString(10))
+                    exists = true
+                }
                 if( exists )
                     result = [file]
                 else

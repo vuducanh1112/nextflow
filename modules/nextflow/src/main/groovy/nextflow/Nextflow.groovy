@@ -443,4 +443,18 @@ class Nextflow {
 
     @Deprecated
     static Closure<TokenMultiMapDef> forkCriteria(Closure<TokenBranchDef> closure) { closure }
+
+    /**
+     * Create a random string of N chars
+     *
+     * @param length the size of the string
+     * @param digits if digits are allowed
+     * @return
+     */
+    static String randomString(int length, boolean digits=true){
+        def alphabet = (digits ? (('A'..'Z')+('0'..'9')) : ('A'..'Z')).join()
+        random.with {
+            (1..length).collect { alphabet[ nextInt( alphabet.length() ) ] }.join()
+        }
+    }
 }
