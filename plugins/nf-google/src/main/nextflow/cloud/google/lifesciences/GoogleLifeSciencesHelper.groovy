@@ -174,8 +174,6 @@ class GoogleLifeSciencesHelper {
         final actions = new ArrayList(5)
         actions.addAll( createActions(req) )
         final pipeline = createPipeline( actions, createResources(req), req.timeout )
-        runPipeline(req.project, req.location, pipeline, ["taskName" : req.taskName])
-        final pipeline = createPipeline( actions, createResources(req) )
         runPipeline(req.project, req.location, pipeline, getLabels(req))
     }
 
