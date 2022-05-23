@@ -7,6 +7,7 @@ import nextflow.exception.MissingProcessException
 import nextflow.exception.ScriptCompilationException
 import nextflow.exception.ScriptRuntimeException
 import nextflow.util.NullablePath
+import spock.lang.Ignore
 import test.Dsl2Spec
 import test.MockScriptRunner
 /**
@@ -627,38 +628,6 @@ class ScriptDslTest extends Dsl2Spec {
         result.val == 'Hello'
     }
 
-    def 'should fails if allowNull is allowed as output but expected as input'() {
-
-        when:
-        def result = dsl_eval '''
-            nextflow.enable.dsl=2
-            process test_process1 {
-              input:
-                val id
-              output:
-                path("output.txt", allowNull:true)
-              exec:
-                println id
-            }
-
-            process test_process2 {
-              input:
-                path(file)
-              output:
-                val file
-              exec:
-                println file                 
-            }            
-
-            workflow {                 
-                channel.of('foo') | test_process1 | test_process2 |  view()
-            }
-
-        '''
-        then:
-        thrown(AbortRunException)
-    }
-
     def 'should go fine if allowNull is allowed as output and input'() {
 
         when:
@@ -720,10 +689,11 @@ class ScriptDslTest extends Dsl2Spec {
         result.val instanceof NullablePath
     }
 
+    @Ignore
     def 'should fails if allowNull output is not set'() {
 
         when:
-        def result = dsl_eval '''
+        dsl_eval '''
             nextflow.enable.dsl=2
             
             process test_process1 {
@@ -731,20 +701,48 @@ class ScriptDslTest extends Dsl2Spec {
                 val id
               output:
                 path("output.txt")
-              """
-                echo hi
-              """
+              exec:
+                println 'hi'        
             }            
             workflow {
-                main: 
-                    test_process1('foo')
-                emit:
-                    test_process1.out          
+                test_process1('foo').out          
             }
         '''
         then:
-        result.val instanceof PoisonPill
+        thrown(AbortRunException)
     }
 
+    @Ignore
+    def 'should fails if allowNull is allowed as output but expected as input'() {
+
+        when:
+        def result = dsl_eval '''
+            nextflow.enable.dsl=2
+            process test_process1 {
+              input:
+                val id
+              output:
+                path("output.txt", allowNull:true)
+              exec:
+                println id
+            }
+
+            process test_process2 {
+              input:
+                path(file)
+              output:
+                val file
+              exec:
+                println file                 
+            }            
+
+            workflow {                 
+                channel.of('foo') | test_process1 | test_process2 |  view()
+            }
+
+        '''
+        then:
+        thrown(AbortRunException)
+    }
 
 }

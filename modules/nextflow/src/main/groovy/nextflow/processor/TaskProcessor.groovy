@@ -1695,7 +1695,7 @@ class TaskProcessor {
         return new FileHolder(source, result)
     }
 
-    protected Path normalizeToPath( obj, boolean allowNullable ) {
+    protected Path normalizeToPath( obj, boolean allowNullable=false ) {
         if( obj instanceof Path )
             return obj
 
@@ -1720,7 +1720,7 @@ class TaskProcessor {
     }
 
     protected List<FileHolder> normalizeInputToFiles( Object obj, int count, boolean coerceToPath, FilePorter.Batch batch,
-                                                      boolean allowNullable ) {
+                                                      boolean allowNullable=false ) {
 
         Collection allItems = obj instanceof Collection ? obj : [obj]
         def len = allItems.size()
