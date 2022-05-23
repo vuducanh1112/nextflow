@@ -631,6 +631,20 @@ section::
     when using Nextflow 19.10.0 or later.
 
 
+In the case an input `path` doesn't exist, the process will be aborted. If you want the process will be executed
+independently if the file exists or not, you can set the attribute `allowNull` as true:
+
+    process foo {
+      input:
+        path x, stageAs: 'data.txt', allowNull:true from '/some/data/file.txt'
+
+      """
+      [[ -f data.txt ]] your_command --in data.txt || other_command
+      """
+    }
+
+
+
 Input of type 'stdin'
 ---------------------
 
@@ -1068,6 +1082,7 @@ followLinks     When ``true`` target files are return in place of any matching s
 type            Type of paths returned, either ``file``, ``dir`` or ``any`` (default: ``any``, or ``file`` if the specified file name pattern contains a `**` - double star - symbol)
 maxDepth        Maximum number of directory levels to visit (default: `no limit`)
 includeInputs   When ``true`` any input files matching an output file glob pattern are included.
+allowNull       When ``true`` emit a NullablePath instead to abort the process
 ============== =====================
 
 .. warning::

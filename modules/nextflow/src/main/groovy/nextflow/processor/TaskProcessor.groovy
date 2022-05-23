@@ -16,6 +16,8 @@
  */
 package nextflow.processor
 
+import nextflow.util.NullablePath
+
 import static nextflow.processor.ErrorStrategy.*
 
 import java.lang.reflect.InvocationTargetException
@@ -1481,13 +1483,13 @@ class TaskProcessor {
 
     protected void collectOutFiles( TaskRun task, FileOutParam param, Path workDir, Map context ) {
 
-        final List<Path> allFiles = []
+        final List<Object> allFiles = []
         // type file parameter can contain a multiple files pattern separating them with a special character
         def entries = param.getFilePatterns(context, task.workDir)
         boolean inputsRemovedFlag = false
         // for each of them collect the produced files
         for( String filePattern : entries ) {
-            List<Path> result = null
+            List<Object> result = null
 
             def splitter = param.glob ? FilePatternSplitter.glob().parse(filePattern) : null
             if( splitter?.isPattern() ) {
@@ -1504,7 +1506,7 @@ class TaskProcessor {
                 def file = workDir.resolve(path)
                 def exists = param.followLinks ? file.exists() : file.exists(LinkOption.NOFOLLOW_LINKS)
                 if( !exists && param.allowNull){
-                    file = workDir.resolve(Nextflow.randomString(10))
+                    file = new NullablePath(path:path)
                     exists = true
                 }
                 if( exists )
@@ -1693,7 +1695,7 @@ class TaskProcessor {
         return new FileHolder(source, result)
     }
 
-    protected Path normalizeToPath( obj ) {
+    protected Path normalizeToPath( obj, boolean allowNullable ) {
         if( obj instanceof Path )
             return obj
 
@@ -1712,11 +1714,13 @@ class TaskProcessor {
             return FileHelper.asPath(str)
         if( !str )
             throw new ProcessUnrecoverableException("Path value cannot be empty")
-        
+        if( allowNullable )
+            return FileHelper.asPath(str)
         throw new ProcessUnrecoverableException("Not a valid path value: '$str'")
     }
 
-    protected List<FileHolder> normalizeInputToFiles( Object obj, int count, boolean coerceToPath, FilePorter.Batch batch ) {
+    protected List<FileHolder> normalizeInputToFiles( Object obj, int count, boolean coerceToPath, FilePorter.Batch batch,
+                                                      boolean allowNullable ) {
 
         Collection allItems = obj instanceof Collection ? obj : [obj]
         def len = allItems.size()
@@ -1726,7 +1730,7 @@ class TaskProcessor {
         for( def item : allItems ) {
 
             if( item instanceof Path || coerceToPath ) {
-                def path = normalizeToPath(item)
+                def path = normalizeToPath(item, allowNullable)
                 def target = executor.isForeignFile(path) ? batch.addToForeign(path) : path
                 def holder = new FileHolder(target)
                 files << holder
@@ -1940,7 +1944,7 @@ class TaskProcessor {
             final param = entry.getKey()
             final val = entry.getValue()
             final fileParam = param as FileInParam
-            final normalized = normalizeInputToFiles(val, count, fileParam.isPathQualifier(), batch)
+            final normalized = normalizeInputToFiles(val, count, fileParam.isPathQualifier(), batch, fileParam.allowNull)
             final resolved = expandWildcards( fileParam.getFilePattern(ctx), normalized )
             ctx.put( param.name, singleItemOrList(resolved, task.type) )
             count += resolved.size()

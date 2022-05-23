@@ -35,6 +35,8 @@ class FileInParam extends BaseInParam implements PathQualifier {
 
     private boolean pathQualifier
 
+    private boolean allowNull
+
     @Override String getTypeName() { pathQualifier ? 'path' : 'file' }
 
     @Override String getTypeSimpleName() { getTypeName() + "inparam" }
@@ -154,4 +156,12 @@ class FileInParam extends BaseInParam implements PathQualifier {
         return this
     }
 
+    FileInParam setAllowNull(boolean value) {
+        this.allowNull = value
+        return this
+    }
+
+    boolean isAllowNull() {
+        return allowNull
+    }
 }
