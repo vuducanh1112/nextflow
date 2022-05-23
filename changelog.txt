@@ -1,5 +1,86 @@
 NEXTFLOW CHANGE-LOG
 ===================
+22.04.3 - 18 May 2022
+- Fix dsl1 detection (#2879) [1a7ea0d1] <Jose Espinosa-Carrasco
+
+22.04.2 - 16 May 2022
+- Fix stackoverflow error when probe dsl [a05fcbea]
+
+22.04.1 - 15 May 2022
+- Improve dsl detection [739b959f]
+- Improve missing workflow err message [f3fc081b] (#2871)
+- Fix Aws Batch retry policy on spot reclaim [d855f0d9]
+- Update default SKU for Azure Batch (#2868) [be60fc14]
+- Bump nf-amazon 1.7.2
+- Bump nf-azure 0.13.2
+
+22.04.0 - 23 Apr 2022
+- Improve error reporting (#2658) [e6ef017d] <Jorge Aguilera>
+- Document params-file and improve self-update (#2673) [1e008f47] <Abhinav Sharma>
+- Add support for AWS S3 anonymous credentials (#2810) [ae7ba35a]
+- Add tolerations K8s pod option (#2763) [7f7cdadc] <Ben Sherman>
+- Add support for batched queries to nf-sqldb plugin [3a9dad8b]
+- Add `emitColumns` option fromQuery operator [6a6a6eac]
+- Add mermaid DAG renderer [653f1e57]
+- Fix missing SSE flag on AWS Batch job submit (#2809) [4b3e946d]
+- Fix Task execution is not evicted on unexpected execution error (#2787) [05ea0c86] <Fabian Lehmann>
+- Document params-file and improve self-update  (#2673) [1e008f47] <Abhinav Sharma>
+- Improve deprecation message (#2788) [720a84d7] <Fabian Lehmann>
+- General docs improvements (#2800) [88acd26b] <Ben Sherman>
+- Decrease Aws upload chunk size to 20 MB [086138fb]
+- Improve error reporting (#2658) [e6ef017d] <Jorge Aguilera>
+- Improve err reporting for Azure Batch [798bae1f]
+- Rename echo directive to debug (#2776) [8f906aa5] <Ben Sherman>
+- Remove embedded Read The Docs theme [728d545f] <Paolo Di Tommaso>
+- Use a remote config in kuberun (#2781) [5485b699] <Fabian Lehmann>
+- Start Github Actions also for edited PRs (#2796) [78f5c10f] <Fabian Lehmann>
+- Deprecate isDsl2Final method [0f63f1a7]
+- Document task object [1c83e21e] <Ben Sherman>
+- Bump nf-sqldb@0.4.0 [a137e93a]
+- Bump nf-amazon@1.7.1 [912b9bb2]
+- Bump moment.js version2.29.2 [a229c1ed]
+
+22.03.1-edge - 6 Apr 2022 
+- Fix default dsl env detection [b9a09bf6]
+- Handle K8s timeout error - 500 status code (#2756) [89a1a46b] <xhejtman>
+- Honour background option for kuberun command [b1b0ddd9] <kfrancisdev>
+- Add Aws Batch native retry on spot reclaim [cd95e297]
+- Improve Aws Batch error reporting [00443510]
+- Add missing workflow err report [fa687789]
+- Use local nextflow when packing docker image (#2757) [40271b08] <xhejtman>
+- Add retry policy Azure create job [792820a2]
+- Fix log message in nf-azure [80a0e937] <Manuele Simi>
+- Prevent build on tag [5b660c73]
+- Fix missing linux/amd64 platform on docker build [05f117d7]
+
+22.03.0-edge - 27 Mar 2022
+- Add experimental proxy reg [b3836691]
+- Add api to access config raw value [977f6305]
+- Add warning for invalid emit names [0045834c]
+- Add retry policy on grid submit failure #2696 [673f560c]
+- Add config tests #2422 [885993b1]
+- Add ability to disable config names check [814a2605]
+- Add azcopy fine grain config settings [3998a56b]
+- Add binary compatibility with Java 8 [763ec999]
+- Add retry policy to Az Batch operations [991c6175]
+- Make DSL2 default syntax [4e9189ac] [0c80784a]
+- Fix Reduce task command runner script size [6930408b]
+- Fix K8s task retry strategy on node termination [bd093081]
+- Fix use first config in stack when is into profile #2701 [44bdde8d] <Jorge Aguilera>
+- Fix Allow comments after nextflow.enable.dsl (#2746) [6988638b] <Jorge Aguilera>
+- Fix allow blank spaces in java path (#2690) [a966020e] <Jorge Aguilera>
+- Improve AWS Batch job retry on spot termination [bd8f2e26] [72fbda848]
+- Improve error reporting [55466be7]
+- Undeprecate merge operation [1649944b]
+- Bump support for Java 18 [f3a11e4c]
+- Prevent invalid use of large maxForks values [5de0c200]
+- Prevent race condition on thread pool creation [3e707a1d]
+- Refactor AWS batch job unique token generation [d64f5a21]
+- Decrese log verbosity [9237d587] [d1a5e5a8]
+- Throw an error if a required secret is missing [8e5129d6]
+- Wait for pod to stop running before shutdown (#2667) [505c5ad6]) <kfrancisdev>
+- Restore AZ tests [858a4568]
+
 22.02.1-edge - 3 Mar 2022
 - Prevent multiple parsing of params file [38bb1f71]
 

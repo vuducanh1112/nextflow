@@ -611,7 +611,10 @@ class TaskRun implements Cloneable {
 
         final cfg = getContainerConfig()
         final handler = new ContainerHandler(cfg)
-        handler.normalizeImageName(imageName)
+        final result = handler.normalizeImageName(imageName)
+
+        final proxy = System.getenv('NXF_PROXY_REG')
+        return proxy ? ContainerHandler.proxyReg(proxy, result) : result
     }
 
     /**
@@ -833,5 +836,8 @@ class TaskRun implements Cloneable {
         return result
     }
 
+    TaskBean toTaskBean() {
+        return new TaskBean(this)
+    }
 }
 

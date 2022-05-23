@@ -26,6 +26,7 @@ import groovy.transform.CompileDynamic
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import nextflow.container.DockerBuilder
+import nextflow.exception.NodeTerminationException
 import nextflow.exception.ProcessSubmitException
 import nextflow.executor.BashWrapperBuilder
 import nextflow.k8s.client.K8sClient
@@ -37,6 +38,7 @@ import nextflow.processor.TaskHandler
 import nextflow.processor.TaskRun
 import nextflow.processor.TaskStatus
 import nextflow.trace.TraceRecord
+import nextflow.util.Escape
 import nextflow.util.PathTrie
 /**
  * Implements the {@link TaskHandler} interface for Kubernetes jobs
@@ -78,6 +80,8 @@ class K8sTaskHandler extends TaskHandler {
     private long timestamp
 
     private K8sExecutor executor
+
+    private String runsOnNode = null
 
     K8sTaskHandler( TaskRun task, K8sExecutor executor ) {
         super(task)
@@ -157,23 +161,34 @@ class K8sTaskHandler extends TaskHandler {
         }
     }
 
+    protected boolean preserveContainerEntrypoint() {
+        return executor.getK8sConfig().preserveContainerEntrypoint()
+    }
+
     protected Map newSubmitRequest0(TaskRun task, String imageName) {
 
         final fixOwnership = builder.fixOwnership()
-        final cmd = new ArrayList(new ArrayList(BashWrapperBuilder.BASH)) << TaskRun.CMD_RUN
+        final launcher = new ArrayList(new ArrayList(BashWrapperBuilder.BASH)) << "${Escape.path(task.workDir)}/${TaskRun.CMD_RUN}".toString()
         final taskCfg = task.getConfig()
 
         final clientConfig = client.config
         final builder = new PodSpecBuilder()
             .withImageName(imageName)
             .withPodName(getSyntheticPodName(task))
-            .withCommand(cmd)
-            .withWorkDir(task.workDir)
             .withNamespace(clientConfig.namespace)
             .withServiceAccount(clientConfig.serviceAccount)
             .withLabels(getLabels(task))
             .withAnnotations(getAnnotations())
             .withPodOptions(getPodOptions())
+
+        // when `preserveEntrypoint` is true the launcher is run via `args` instead of `command`
+        // to not override the container entrypoint
+        if( preserveContainerEntrypoint() ) {
+            builder.withArgs(launcher)
+        }
+        else {
+            builder.withCommand(launcher)
+        }
 
         // note: task environment is managed by the task bash wrapper
         // do not add here -- see also #680
@@ -256,16 +271,29 @@ class K8sTaskHandler extends TaskHandler {
      */
     protected Map getState() {
         final now = System.currentTimeMillis()
-        final delta =  now - timestamp;
-        if( !state || delta >= 1_000) {
-            def newState = client.podState(podName)
-            if( newState ) {
-                log.trace "[K8s] Get pod=$podName state=$newState"
-                state = newState
-                timestamp = now
+        try {
+            final delta =  now - timestamp;
+            if( !state || delta >= 1_000) {
+                def newState = client.podState(podName)
+                if( newState ) {
+                    log.trace "[K8s] Get pod=$podName state=$newState"
+                    state = newState
+                    timestamp = now
+                }
             }
+            return state
         }
-        return state
+        catch (NodeTerminationException e) {
+            // create a synthetic `state` object adding an extra `nodeTermination`
+            // attribute to return the NodeTerminationException error to the caller method
+            final instant = Instant.now()
+            final result = new HashMap(10)
+            result.terminated = [startedAt:instant.toString(), finishedAt:instant.toString()]
+            result.nodeTermination = e
+            timestamp = now
+            state = result
+            return state
+        }
     }
 
     @Override
@@ -276,6 +304,7 @@ class K8sTaskHandler extends TaskHandler {
             // include `terminated` state to allow the handler status to progress
             if (state && (state.running != null || state.terminated)) {
                 status = TaskStatus.RUNNING
+                determineNode()
                 return true
             }
         }
@@ -317,14 +346,23 @@ class K8sTaskHandler extends TaskHandler {
         if( !podName ) throw new IllegalStateException("Missing K8s pod name - cannot check if complete")
         def state = getState()
         if( state && state.terminated ) {
-            // finalize the task
-            task.exitStatus = readExitFile()
-            task.stdout = outputFile
-            task.stderr = errorFile
+            if( state.nodeTermination instanceof NodeTerminationException ) {
+                // kee track of the node termination error
+                task.error = (NodeTerminationException) state.nodeTermination
+                // mark the task as ABORTED since thr failure is caused by a node failure
+                task.aborted = true
+            }
+            else {
+                // finalize the task
+                task.exitStatus = readExitFile()
+                task.stdout = outputFile
+                task.stderr = errorFile
+            }
             status = TaskStatus.COMPLETED
             savePodLogOnError(task)
             deletePodIfSuccessful(task)
             updateTimestamps(state.terminated as Map)
+            determineNode()
             return true
         }
 
@@ -402,10 +440,19 @@ class K8sTaskHandler extends TaskHandler {
         }
     }
 
+    private void determineNode(){
+        try {
+            if ( k8sConfig.fetchNodeName() && !runsOnNode )
+                runsOnNode = client.getNodeOfPod( podName )
+        } catch ( Exception e ){
+            log.warn ("Unable to fetch pod: $podName its node -- see the log file for details", e)
+        }
+    }
 
     TraceRecord getTraceRecord() {
         final result = super.getTraceRecord()
         result.put('native_id', podName)
+        result.put( 'hostname', runsOnNode )
         return result
     }
 
