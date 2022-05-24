@@ -1,31 +1,23 @@
 package nextflow.util
 
+import groovy.transform.EqualsAndHashCode
+import groovy.transform.PackageScope
+import groovy.util.logging.Slf4j
+import java.nio.file.Path
 
 /**
  * @author : jorge <jorge.aguilera@seqera.io>
  *
  */
-class NullablePath implements CharSequence{
+@EqualsAndHashCode
+@Slf4j
+class NullablePath implements Path{
 
-    String path
+    @PackageScope
+    @Delegate
+    Path delegate
 
-    @Override
-    String toString() {
-        return path
-    }
-
-    @Override
-    int length() {
-        path.length()
-    }
-
-    @Override
-    char charAt(int index) {
-        path.charAt(index)
-    }
-
-    @Override
-    CharSequence subSequence(int start, int end) {
-        path.subSequence(start, end)
+    NullablePath(String path){
+        delegate = of(path)
     }
 }

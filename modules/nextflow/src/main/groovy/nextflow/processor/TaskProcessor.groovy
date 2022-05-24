@@ -1506,7 +1506,7 @@ class TaskProcessor {
                 def file = workDir.resolve(path)
                 def exists = param.followLinks ? file.exists() : file.exists(LinkOption.NOFOLLOW_LINKS)
                 if( !exists && param.allowNull){
-                    file = new NullablePath(path:path)
+                    file = new NullablePath(path)
                     exists = true
                 }
                 if( exists )
@@ -1696,6 +1696,10 @@ class TaskProcessor {
     }
 
     protected Path normalizeToPath( obj, boolean allowNullable=false ) {
+
+        if( obj instanceof NullablePath && !allowNullable)
+            throw new ProcessUnrecoverableException("Path value cannot be null")
+
         if( obj instanceof Path )
             return obj
 
@@ -1714,8 +1718,6 @@ class TaskProcessor {
             return FileHelper.asPath(str)
         if( !str )
             throw new ProcessUnrecoverableException("Path value cannot be empty")
-        if( allowNullable )
-            return FileHelper.asPath(str)
         throw new ProcessUnrecoverableException("Not a valid path value: '$str'")
     }
 

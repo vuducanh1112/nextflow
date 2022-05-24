@@ -689,14 +689,17 @@ class ScriptDslTest extends Dsl2Spec {
         result.val instanceof NullablePath
     }
 
-    @Ignore
+    //@Ignore
     def 'should fails if allowNull output is not set'() {
-
-        when:
-        dsl_eval '''
+        given:
+        def runner = new MockScriptRunner()
+        and:
+        def script = '''
             nextflow.enable.dsl=2
             
             process test_process1 {
+              errorStrategy { sleep(Math.pow(2, task.attempt) * 200 as long); return 'retry' }
+              maxRetries 1            
               input:
                 val id
               output:
@@ -708,15 +711,20 @@ class ScriptDslTest extends Dsl2Spec {
                 test_process1('foo').out          
             }
         '''
+        when:
+        runner.setScript(script).execute()
+
         then:
         thrown(AbortRunException)
+        runner.session.error
     }
 
-    @Ignore
+    //@Ignore
     def 'should fails if allowNull is allowed as output but expected as input'() {
-
-        when:
-        def result = dsl_eval '''
+        given:
+        def runner = new MockScriptRunner()
+        and:
+        def script = '''
             nextflow.enable.dsl=2
             process test_process1 {
               input:
@@ -728,6 +736,8 @@ class ScriptDslTest extends Dsl2Spec {
             }
 
             process test_process2 {
+              errorStrategy { sleep(Math.pow(2, task.attempt) * 200 as long); return 'retry' }
+              maxRetries 1
               input:
                 path(file)
               output:
@@ -741,8 +751,12 @@ class ScriptDslTest extends Dsl2Spec {
             }
 
         '''
+        when:
+        runner.setScript(script).execute()
+
         then:
         thrown(AbortRunException)
+        runner.session.error
     }
 
 }
