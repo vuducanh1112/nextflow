@@ -1,13 +1,9 @@
 package nextflow.script
 
-import groovyx.gpars.dataflow.operator.PoisonPill
 import nextflow.Channel
-import nextflow.exception.AbortRunException
 import nextflow.exception.MissingProcessException
 import nextflow.exception.ScriptCompilationException
 import nextflow.exception.ScriptRuntimeException
-import nextflow.util.NullablePath
-import spock.lang.Ignore
 import test.Dsl2Spec
 import test.MockScriptRunner
 /**
@@ -340,7 +336,7 @@ class ScriptDslTest extends Dsl2Spec {
 
         then:
         result.val == 'world'
-        
+
     }
 
     def 'should not allow composition' () {
@@ -523,7 +519,7 @@ class ScriptDslTest extends Dsl2Spec {
     def 'should fail because process is not defined'() {
         when:
         dsl_eval(
-        '''
+                '''
         process sleeper {
             exec:
             """
@@ -626,137 +622,6 @@ class ScriptDslTest extends Dsl2Spec {
 
         then:
         result.val == 'Hello'
-    }
-
-    def 'should go fine if allowNull is allowed as output and input'() {
-
-        when:
-        def result = dsl_eval '''
-            nextflow.enable.dsl=2
-            process test_process1 {
-              input:
-                val id
-              output:
-                path("output.txt", allowNull:true)
-              script:
-                "echo hi"
-            }
-
-            process test_process2 {
-              input:
-                path(file, allowNull:true)
-              output:
-                val 'done'
-              script:
-                "echo hello"                 
-            }            
-
-            workflow {  
-                main:               
-                    channel.of('foo') | test_process1 | test_process2
-                emit:
-                    test_process2.out
-            }
-
-        '''
-        then:
-        result.val == 'done'
-    }
-
-    def 'should go fine if allowNull output is allowed'() {
-
-        when:
-        def result = dsl_eval '''
-            nextflow.enable.dsl=2
-            
-            process test_process1 {
-              input:
-                val id
-              output:
-                path("output.txt", allowNull:true)
-              """
-                echo hi
-              """
-            }            
-            workflow {
-                main: 
-                    test_process1('foo')
-                emit:
-                    test_process1.out          
-            }
-        '''
-        then:
-        result.val instanceof NullablePath
-    }
-
-    //@Ignore
-    def 'should fails if allowNull output is not set'() {
-        given:
-        def runner = new MockScriptRunner()
-        and:
-        def script = '''
-            nextflow.enable.dsl=2
-            
-            process test_process1 {
-              errorStrategy { sleep(Math.pow(2, task.attempt) * 200 as long); return 'retry' }
-              maxRetries 1            
-              input:
-                val id
-              output:
-                path("output.txt")
-              exec:
-                println 'hi'        
-            }            
-            workflow {
-                test_process1('foo').out          
-            }
-        '''
-        when:
-        runner.setScript(script).execute()
-
-        then:
-        thrown(AbortRunException)
-        runner.session.error
-    }
-
-    //@Ignore
-    def 'should fails if allowNull is allowed as output but expected as input'() {
-        given:
-        def runner = new MockScriptRunner()
-        and:
-        def script = '''
-            nextflow.enable.dsl=2
-            process test_process1 {
-              input:
-                val id
-              output:
-                path("output.txt", allowNull:true)
-              exec:
-                println id
-            }
-
-            process test_process2 {
-              errorStrategy { sleep(Math.pow(2, task.attempt) * 200 as long); return 'retry' }
-              maxRetries 1
-              input:
-                path(file)
-              output:
-                val file
-              exec:
-                println file                 
-            }            
-
-            workflow {                 
-                channel.of('foo') | test_process1 | test_process2 |  view()
-            }
-
-        '''
-        when:
-        runner.setScript(script).execute()
-
-        then:
-        thrown(AbortRunException)
-        runner.session.error
     }
 
 }

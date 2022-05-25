@@ -19,7 +19,6 @@ package nextflow.script
 
 import groovyx.gpars.dataflow.DataflowQueue
 import groovyx.gpars.dataflow.DataflowWriteChannel
-import nextflow.Nextflow
 import nextflow.Session
 import nextflow.config.ConfigParser
 import nextflow.exception.ProcessUnrecoverableException

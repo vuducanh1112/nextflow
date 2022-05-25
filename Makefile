@@ -74,7 +74,9 @@ refresh:
 #
 test:
 ifndef class
-	./gradlew ${mm}test
+	./gradlew ${mm}test -PexcludeTests='nextflow.script.OutputNullablePathTest.class,nextflow.script.InputNullablePathTest.class'
+	./gradlew nextflow:test --tests nextflow.script.InputNullablePathTest
+	./gradlew nextflow:test --tests nextflow.script.OutputNullablePathTest
 else
 	./gradlew ${mm}test --tests ${class}
 endif
