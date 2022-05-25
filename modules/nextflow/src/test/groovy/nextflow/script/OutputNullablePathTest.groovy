@@ -17,10 +17,12 @@ class OutputNullablePathTest extends Dsl2Spec {
 
     def 'should fails if allowNull output is not set'() {
         given:
+        def error = false
         def session = new Session( executor: 'nope' ) {
             @Override
             void abort(Throwable cause) {
                 forceTermination()
+                error = true
             }
         }
 
@@ -45,7 +47,7 @@ class OutputNullablePathTest extends Dsl2Spec {
         runner.setScript(script).execute()
 
         then:
-        session.workflowMetadata.stats.failedCount==1
+        error
     }
 
 }
