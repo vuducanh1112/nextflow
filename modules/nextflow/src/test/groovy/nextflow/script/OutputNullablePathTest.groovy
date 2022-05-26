@@ -2,17 +2,14 @@ package nextflow.script
 
 
 import nextflow.Session
-import nextflow.exception.MissingFileException
-import nextflow.exception.ProcessUnrecoverableException
 import spock.lang.IgnoreIf
-import spock.lang.Timeout
-import test.BaseSpec
 import test.Dsl2Spec
 
 /**
  *
  * @author Jorge Aguilera <jorge.aguilera@seqera.io>
  */
+@IgnoreIf({System.getenv('NXF_INPUTNULLABLE')})
 class OutputNullablePathTest extends Dsl2Spec {
 
     def 'should fails if allowNull output is not set'() {

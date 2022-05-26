@@ -60,9 +60,6 @@ dependencies {
 test {
     minHeapSize = "512m"
     maxHeapSize = "2048m"
-    if (project.hasProperty('excludeTests')) {
-        exclude project.findProperty('excludeTests').split(',')
-    }
 }
 
 application {

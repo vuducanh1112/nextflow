@@ -1483,13 +1483,13 @@ class TaskProcessor {
 
     protected void collectOutFiles( TaskRun task, FileOutParam param, Path workDir, Map context ) {
 
-        final List<Object> allFiles = []
+        final List<Path> allFiles = []
         // type file parameter can contain a multiple files pattern separating them with a special character
         def entries = param.getFilePatterns(context, task.workDir)
         boolean inputsRemovedFlag = false
         // for each of them collect the produced files
         for( String filePattern : entries ) {
-            List<Object> result = null
+            List<Path> result = null
 
             def splitter = param.glob ? FilePatternSplitter.glob().parse(filePattern) : null
             if( splitter?.isPattern() ) {

@@ -14,6 +14,7 @@ import test.MockScriptRunner
  *
  * @author Jorge Aguilera <jorge.aguilera@seqera.io>
  */
+@IgnoreIf({System.getenv('NXF_INPUTNULLABLE')})
 class InputNullablePathTest extends Dsl2Spec {
 
     def 'should fails if allowNull is allowed as output but expected as input'() {
