@@ -1505,7 +1505,7 @@ class TaskProcessor {
                 def path = param.glob ? splitter.strip(filePattern) : filePattern
                 def file = workDir.resolve(path)
                 def exists = param.followLinks ? file.exists() : file.exists(LinkOption.NOFOLLOW_LINKS)
-                if( !exists && param.allowNull){
+                if( !exists && param.nullable){
                     file = new NullablePath(path)
                     exists = true
                 }
@@ -1695,9 +1695,9 @@ class TaskProcessor {
         return new FileHolder(source, result)
     }
 
-    protected Path normalizeToPath( obj, boolean allowNullable=false ) {
+    protected Path normalizeToPath( obj, boolean nullable=false ) {
 
-        if( obj instanceof NullablePath && !allowNullable)
+        if( obj instanceof NullablePath && !nullable)
             throw new ProcessUnrecoverableException("Path value cannot be null")
 
         if( obj instanceof Path )
@@ -1722,7 +1722,7 @@ class TaskProcessor {
     }
 
     protected List<FileHolder> normalizeInputToFiles( Object obj, int count, boolean coerceToPath, FilePorter.Batch batch,
-                                                      boolean allowNullable=false ) {
+                                                      boolean nullable=false ) {
 
         Collection allItems = obj instanceof Collection ? obj : [obj]
         def len = allItems.size()
@@ -1732,7 +1732,7 @@ class TaskProcessor {
         for( def item : allItems ) {
 
             if( item instanceof Path || coerceToPath ) {
-                def path = normalizeToPath(item, allowNullable)
+                def path = normalizeToPath(item, nullable)
                 def target = executor.isForeignFile(path) ? batch.addToForeign(path) : path
                 def holder = new FileHolder(target)
                 files << holder
@@ -1946,7 +1946,7 @@ class TaskProcessor {
             final param = entry.getKey()
             final val = entry.getValue()
             final fileParam = param as FileInParam
-            final normalized = normalizeInputToFiles(val, count, fileParam.isPathQualifier(), batch, fileParam.allowNull)
+            final normalized = normalizeInputToFiles(val, count, fileParam.isPathQualifier(), batch, fileParam.nullable)
             final resolved = expandWildcards( fileParam.getFilePattern(ctx), normalized )
             ctx.put( param.name, singleItemOrList(resolved, task.type) )
             count += resolved.size()

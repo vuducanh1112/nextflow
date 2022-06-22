@@ -12,7 +12,7 @@ import test.Dsl2Spec
 @IgnoreIf({System.getenv('NXF_INPUTNULLABLE')})
 class OutputNullablePathTest extends Dsl2Spec {
 
-    def 'should fails if allowNull output is not set'() {
+    def 'should fails if nullable output is not set'() {
         given:
         def error = false
         def session = new Session( executor: 'nope' ) {

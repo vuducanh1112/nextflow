@@ -17,7 +17,7 @@ import test.MockScriptRunner
 @IgnoreIf({System.getenv('NXF_INPUTNULLABLE')})
 class InputNullablePathTest extends Dsl2Spec {
 
-    def 'should fails if allowNull is allowed as output but expected as input'() {
+    def 'should fails if nullable is allowed as output but expected as input'() {
         given:
         def session = new Session( executor: 'nope' ) {
             @Override
@@ -34,7 +34,7 @@ class InputNullablePathTest extends Dsl2Spec {
               input:
                 val id
               output:
-                path("output.txt", allowNull:true)
+                path("output.txt", nullable:true)
               exec:
                 println id
             }

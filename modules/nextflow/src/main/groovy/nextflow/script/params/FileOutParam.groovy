@@ -84,7 +84,7 @@ class FileOutParam extends BaseOutParam implements OutParam, OptionalParam, Path
     /**
      * When true, if file doesn't exist, emit a Nullable instead an exception
      */
-    boolean allowNull = false
+    boolean nullable = false
 
     boolean glob = true
 

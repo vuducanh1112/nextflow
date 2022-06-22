@@ -3,7 +3,7 @@ process test_process1 {
   input:
     val id
   output:
-    path("output.txt", allowNull:true)
+    path("output.txt", nullable:true)
   exec:
     println id
 }
