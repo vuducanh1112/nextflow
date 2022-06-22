@@ -519,7 +519,7 @@ class ScriptDslTest extends Dsl2Spec {
     def 'should fail because process is not defined'() {
         when:
         dsl_eval(
-                '''
+        '''
         process sleeper {
             exec:
             """

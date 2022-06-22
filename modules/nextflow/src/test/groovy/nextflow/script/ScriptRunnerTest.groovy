@@ -203,22 +203,21 @@ class ScriptRunnerTest extends Specification {
 
         def runner = new TestScriptRunner(session)
 
-        def randomVar = Nextflow.randomString(5,false)
-        def script = """
+        def script = '''
             process test {
                 script:
-                "echo \$$randomVar"
+                "echo $HELLO"
             }
 
-            """
-        println script
+            '''
+
         when:
         runner.setScript(script).execute()
         then:
         session.fault.error instanceof ProcessUnrecoverableException
         session.fault.error.cause instanceof MissingPropertyException
-        session.fault.error.cause.message =~ /Unknown variable '$randomVar' -- .*/
-        session.fault.report =~ /No such variable: $randomVar -- .*/
+        session.fault.error.cause.message =~ /Unknown variable 'HELLO' -- .*/
+        session.fault.report =~ /No such variable: HELLO -- .*/
 
     }
 
