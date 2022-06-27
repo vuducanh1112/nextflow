@@ -529,7 +529,7 @@ class AwsBatchTaskHandlerTest extends Specification {
         def handler = Spy(AwsBatchTaskHandler) {
             getTask() >> Mock(TaskRun) { getConfig() >> Mock(TaskConfig)  }
         }
-        handler.@executor = Mock(AwsBatchExecutor)
+        handler.@executor = Mock(AwsBatchRegionExecutor)
 
         when:
         def result = handler.makeJobDefRequest(IMAGE)
@@ -561,7 +561,7 @@ class AwsBatchTaskHandlerTest extends Specification {
         given:
         def IMAGE = 'foo/bar:1.0'
         def JOB_NAME = 'nf-foo-bar-1-0'
-        def executor = Mock(AwsBatchExecutor)
+        def executor = Mock(AwsBatchRegionExecutor)
         def opts = Mock(AwsOptions)
         def handler = Spy(AwsBatchTaskHandler) {
             getTask() >> Mock(TaskRun) { getConfig() >> Mock(TaskConfig)  }
@@ -593,7 +593,7 @@ class AwsBatchTaskHandlerTest extends Specification {
         def IMAGE = 'foo/bar:1.0'
         def JOB_NAME = 'nf-foo-bar-1-0'
         def opts = Mock(AwsOptions)
-        def executor = Mock(AwsBatchExecutor)
+        def executor = Mock(AwsBatchRegionExecutor)
         def handler = Spy(AwsBatchTaskHandler) {
             getTask() >> Mock(TaskRun) { getConfig() >> Mock(TaskConfig)  }
         }
@@ -617,7 +617,7 @@ class AwsBatchTaskHandlerTest extends Specification {
         def JOB_NAME = 'nf-foo-bar-1-0'
         def opts = Mock(AwsOptions)
         def taskConfig = new TaskConfig(containerOptions: '--privileged --user foo')
-        def executor = Mock(AwsBatchExecutor)
+        def executor = Mock(AwsBatchRegionExecutor)
         def handler = Spy(AwsBatchTaskHandler) {
             getTask() >> Mock(TaskRun) { getConfig() >> taskConfig  }
         }
