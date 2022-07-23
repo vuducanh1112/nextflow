@@ -16,7 +16,7 @@ jobs:
     if: "github.event == 'push' || github.repository != github.event.pull_request.head.repo.full_name"
     name: Build
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 90
     strategy:
       fail-fast: true
       matrix:
@@ -52,6 +52,14 @@ jobs:
     - name: Test
       run: make test
 
+    - name: Publish tests report
+      uses: actions/upload-artifact@v2
+      with:
+        name: report-unit-tests-jdk-${{ matrix.java_version }}
+        if: always()
+        path: |
+          **/build/reports/tests/test
+
   test:
     if: "!contains(github.event.head_commit.message, '[ci fast]')"
     needs: build
@@ -60,7 +68,7 @@ jobs:
       fail-fast: false
       matrix:
         java_version: [11, 18]
-        test_mode: ["test_integration", "test_google", "test_aws", "test_azure"]
+        test_mode: ["test_integration", "test_aws", "test_azure", "test_google"]
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -71,6 +79,20 @@ jobs:
         run: |
           make assemble install 
           bash test-ci.sh
+
+      - name: Tar integration tests
+        if: always()
+        run: tar -cvf integration-tests.tar tests/checks
+
+      - name: Publish tests report
+        uses: actions/upload-artifact@v2
+        with:
+          name: report-${{ matrix.test_mode }}-jdk-${{ matrix.java_version }}
+          if: always()
+          path: |
+            validation/**
+            integration-tests.tar
+
         env:
           TEST_JDK: ${{ matrix.java_version }}
           TEST_MODE: ${{ matrix.test_mode }}
@@ -88,20 +110,3 @@ jobs:
           AZURE_STORAGE_ACCOUNT_KEY: ${{ secrets.AZURE_STORAGE_ACCOUNT_KEY }}
           AZURE_BATCH_ACCOUNT_NAME: nfbatchtest
           AZURE_BATCH_ACCOUNT_KEY: ${{ secrets.AZURE_BATCH_ACCOUNT_KEY }}
-
-  publish:
-    if: always()
-    needs: ["test","build"]
-    runs-on: ubuntu-latest
-    steps:
-    - name: Tar integration tests
-      run: tar -cvf integration-tests.tar tests/checks
-
-    - name: Publish tests report
-      uses: actions/upload-artifact@v2
-      with:
-        name: test-reports-jdk-${{ matrix.java_version }}
-        path: |
-          **/build/reports/tests/test
-          validation/**
-          integration-tests.tar
