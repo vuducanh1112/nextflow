@@ -1,28 +1,4 @@
 #!/bin/bash
-
-#
-# compile the project
-#
-make assemble
-
-#
-# run only unit test
-#
-if [[ $TEST_MODE == 'test_unit' ]]; then
-  make test
-  exit 0
-fi
-
-if [[ $TEST_FAST == 'true' ]]; then
-  echo "Test mode FAST - Skipping integration tests"
-  exit 0
-fi
-
-#
-# install required deps
-#
-make install
-
 #
 # setup env for integration tests
 #
