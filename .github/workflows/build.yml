@@ -90,15 +90,14 @@ jobs:
           AZURE_BATCH_ACCOUNT_KEY: ${{ secrets.AZURE_BATCH_ACCOUNT_KEY }}
 
   publish:
+    if: always()
     needs: ["test","build"]
     runs-on: ubuntu-latest
     steps:
     - name: Tar integration tests
-      if: failure()
       run: tar -cvf integration-tests.tar tests/checks
 
     - name: Publish tests report
-      if: failure()
       uses: actions/upload-artifact@v2
       with:
         name: test-reports-jdk-${{ matrix.java_version }}
