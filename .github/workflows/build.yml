@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         java_version: [11, 18]
 
@@ -49,26 +49,21 @@ jobs:
     - name: Compile
       run: make assemble
 
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java_version: [11, 18]
+        test_mode: ["test_unit", "test_integration", "test_google", "test_aws", "test_azure"]
+    steps:
     - name: Tests
-      run: make test
-      env:
-        GRADLE_OPTS: '-Dorg.gradle.daemon=false'
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        NXF_BITBUCKET_ACCESS_TOKEN: ${{ secrets.NXF_BITBUCKET_ACCESS_TOKEN }}
-        NXF_GITHUB_ACCESS_TOKEN: ${{ secrets.NXF_GITHUB_ACCESS_TOKEN }}
-        NXF_GITLAB_ACCESS_TOKEN: ${{ secrets.NXF_GITLAB_ACCESS_TOKEN }}
-        NXF_AZURE_REPOS_TOKEN: ${{ secrets.NXF_AZURE_REPOS_TOKEN }}
-        AZURE_STORAGE_ACCOUNT_NAME: nfazurestore
-        AZURE_STORAGE_ACCOUNT_KEY: ${{ secrets.AZURE_STORAGE_ACCOUNT_KEY }}
-        AZURE_BATCH_ACCOUNT_NAME: nfbatchtest
-        AZURE_BATCH_ACCOUNT_KEY: ${{ secrets.AZURE_BATCH_ACCOUNT_KEY }}
-
-    - name: Integration
-      if: "!contains(github.event.head_commit.message, '[ci fast]')"
-      run: make install && ./integration-tests.sh
+      run: bash test-ci.sh
       env:
         TEST_JDK: ${{ matrix.java_version }}
+        TEST_MODE: ${{ matrix.test_mode }}
+        TEST_FAST: ${{ contains(github.event.head_commit.message, '[ci fast]') }}
         GRADLE_OPTS: '-Dorg.gradle.daemon=false'
         AWS_DEFAULT_REGION: eu-west-1
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -84,6 +79,10 @@ jobs:
         AZURE_BATCH_ACCOUNT_NAME: nfbatchtest
         AZURE_BATCH_ACCOUNT_KEY: ${{ secrets.AZURE_BATCH_ACCOUNT_KEY }}
 
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
     - name: Tar integration tests
       if: failure()
       run: tar -cvf integration-tests.tar tests/checks
