@@ -23,42 +23,42 @@ jobs:
         java_version: [11, 18]
 
     steps:
-    - name: Environment
-      run: env | sort 
+      - name: Environment
+        run: env | sort
 
-    - name: Checkout
-      uses: actions/checkout@v2
-      with:
-        fetch-depth: 1
-        submodules: true
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+          submodules: true
 
-    - name: Setup env
-      run: |
-           rm -f $HOME/.gitconfig; 
-           mkdir -p "$HOME/.nextflow";
-           echo "providers.github.auth='$NXF_GITHUB_ACCESS_TOKEN'" > "$HOME/.nextflow/scm"
+      - name: Setup env
+        run: |
+             rm -f $HOME/.gitconfig; 
+             mkdir -p "$HOME/.nextflow";
+             echo "providers.github.auth='$NXF_GITHUB_ACCESS_TOKEN'" > "$HOME/.nextflow/scm"
 
-    - name: Setup Java ${{ matrix.java_version }}
-      uses: actions/setup-java@v2
-      with:
-        java-version: ${{matrix.java_version}}
-        distribution: 'adopt'
-        architecture: x64
-        cache: gradle
+      - name: Setup Java ${{ matrix.java_version }}
+        uses: actions/setup-java@v2
+        with:
+          java-version: ${{matrix.java_version}}
+          distribution: 'adopt'
+          architecture: x64
+          cache: gradle
 
-    - name: Compile
-      run: make assemble
+      - name: Compile
+        run: make assemble
 
-    - name: Test
-      run: make test
+      - name: Test
+        run: make test
 
-    - name: Publish tests report
-      uses: actions/upload-artifact@v2
-      if: always()
-      with:
-        name: report-unit-tests-jdk-${{ matrix.java_version }}
-        path: |
-          **/build/reports/tests/test
+      - name: Publish tests report
+        uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: report-unit-tests-jdk-${{ matrix.java_version }}
+          path: |
+            **/build/reports/tests/test
 
   test:
     if: "!contains(github.event.head_commit.message, '[ci fast]')"
@@ -79,20 +79,6 @@ jobs:
         run: |
           make assemble install 
           bash test-ci.sh
-
-      - name: Tar integration tests
-        if: always()
-        run: tar -cvf integration-tests.tar tests/checks
-
-      - name: Publish tests report
-        uses: actions/upload-artifact@v2
-        if: always()
-        with:
-          name: report-${{ matrix.test_mode }}-jdk-${{ matrix.java_version }}
-          path: |
-            validation/**
-            integration-tests.tar
-
         env:
           TEST_JDK: ${{ matrix.java_version }}
           TEST_MODE: ${{ matrix.test_mode }}
@@ -110,3 +96,16 @@ jobs:
           AZURE_STORAGE_ACCOUNT_KEY: ${{ secrets.AZURE_STORAGE_ACCOUNT_KEY }}
           AZURE_BATCH_ACCOUNT_NAME: nfbatchtest
           AZURE_BATCH_ACCOUNT_KEY: ${{ secrets.AZURE_BATCH_ACCOUNT_KEY }}
+
+      - name: Tar integration tests
+        if: always()
+        run: tar -cvf integration-tests.tar tests/checks
+
+      - name: Publish tests report
+        uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: report-${{ matrix.test_mode }}-jdk-${{ matrix.java_version }}
+          path: |
+            validation/**
+            integration-tests.tar
