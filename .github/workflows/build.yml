@@ -54,9 +54,9 @@ jobs:
 
     - name: Publish tests report
       uses: actions/upload-artifact@v2
+      if: always()
       with:
         name: report-unit-tests-jdk-${{ matrix.java_version }}
-        if: always()
         path: |
           **/build/reports/tests/test
 
@@ -86,9 +86,9 @@ jobs:
 
       - name: Publish tests report
         uses: actions/upload-artifact@v2
+        if: always()
         with:
           name: report-${{ matrix.test_mode }}-jdk-${{ matrix.java_version }}
-          if: always()
           path: |
             validation/**
             integration-tests.tar
