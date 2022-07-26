@@ -598,7 +598,7 @@ class TaskConfigTest extends Specification {
 
         when:
         def process = new ProcessConfig(script)
-        process.label region: 'eu-west-1', organization: 'A'
+        process.resourceLabel region: 'eu-west-1', organization: 'A'
 
         then:
         process.get('resourceLabels') == [region: 'eu-west-1', organization: 'A']

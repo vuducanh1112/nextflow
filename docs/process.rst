@@ -1233,6 +1233,7 @@ The directives are:
 * `executor`_
 * `ext`_
 * `label`_
+* `resourceLabel`_
 * `machineType`_
 * `maxErrors`_
 * `maxForks`_
@@ -1683,19 +1684,40 @@ in the configuration file to select and configure subset of processes having sim
 
 See the :ref:`config-process-selectors` documentation for details.
 
-The ``label`` directive can be also expressed as a `Map<key-value>` or a `key=value` sentence:
+.. _process-resourceLabel:
 
-  process bigTask {
-    label "region=eu-west-1"
-    label organization: 'MyOrganization'
-    label department: 'a department', group: 'a group'
+resourceLabel
+-----
+
+The ``resourceLabel`` directive allows the annotation of processes with mnemonic identifier of your choice
+and they will be used to tag the process when pipeline is running in AWS, Google, K8s, etc
+
+For example::
+
+  process aTask {
+    resourceLabel 'department=dept1'
 
     '''
     <task script>
     '''
   }
 
-These labels will be used to tag the process when pipeline is running in AWS, Google or K8s
+The same resource tag can be applied to more than a process and multiple resource tags can be applied to the same
+process using the ``resourceLabel`` directive more than one time.
+
+``resourceLabel`` allows to specify the tag as a string using a `key=value` format or as a ``Map``:
+
+
+  process anotherTask {
+    resourceLabel 'organization=myorg'
+    resourceLabel department:'mydepartment', team:'myteam'
+
+    '''
+    <task script>
+    '''
+  }
+
+When running in some cloud provider as AWS or Google, for example, all `resourceLabelS` will be assigned to the job
 
 .. _process-machineType:
 

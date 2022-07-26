@@ -705,58 +705,26 @@ class FunctionalTests extends Specification {
                 process foo {
                     label 'bravo'
                     label 'gamma'
-                    label 'department=floor3' 
-                    label region:'eu-west-1' 
+                    resourceLabel 'department=floor3' 
+                    resourceLabel region:'eu-west-1', org:'nextflow' 
+                    resourceLabel department:'floor4'
                     script:
                     'echo hello'
                 }
                 '''
 
-        NextflowMeta.instance.labelsPropagation(true)
         def cfg = new ConfigParser().parse(CONFIG)
         def runner = new TestScriptRunner(cfg)
         runner.setScript(script).execute()
         def processor = runner.scriptObj.taskProcessor
         then:
         processor instanceof TaskProcessor
-        processor.config.label.size() == 3
-        processor.config.label == [ 'bravo', 'gamma', 'department=floor3' ]
-        processor.config.getResourceLabels().size() == 2
-        processor.config.getResourceLabels() == [ department: 'floor3' , region: 'eu-west-1']
+        processor.config.label.size() == 2
+        processor.config.label == [ 'bravo', 'gamma' ]
+        processor.config.getResourceLabels().size() == 3
+        processor.config.getResourceLabels() == [ department: 'floor3' , region: 'eu-west-1', org:'nextflow']
     }
 
-    def 'should NOT set directive label when they are resourceLabels but is feature is disabled' () {
-
-        when:
-        def CONFIG = '''
-            process {
-                executor = 'nope'
-                label = 'alpha'
-            }
-            '''
-
-        def script = '''   
-                process foo {
-                    label 'bravo'
-                    label 'gamma'
-                    label 'department=floor3' 
-                    label region:'eu-west-1' 
-                    script:
-                    'echo hello'
-                }
-                '''
-
-        NextflowMeta.instance.labelsPropagation(false)
-        def cfg = new ConfigParser().parse(CONFIG)
-        def runner = new TestScriptRunner(cfg)
-        runner.setScript(script).execute()
-        def processor = runner.scriptObj.taskProcessor
-        then:
-        processor instanceof TaskProcessor
-        processor.config.label.size() == 3
-        processor.config.label == [ 'bravo', 'gamma', 'department=floor3' ]
-        processor.config.getResourceLabels().size() == 0
-    }
 
     def 'should create process with repeater'() {
 

@@ -73,8 +73,4 @@ class NF {
     static boolean isRecurseEnabled() {
         NextflowMeta.instance.preview.recursion
     }
-
-    static boolean isLabelsPropagationEnabled() {
-        NextflowMeta.instance.isLabelsPropagationEnabled()
-    }
 }

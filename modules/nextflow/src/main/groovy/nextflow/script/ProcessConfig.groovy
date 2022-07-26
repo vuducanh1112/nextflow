@@ -685,7 +685,7 @@ class ProcessConfig implements Map<String,Object>, Cloneable {
         return LABEL_REGEXP.matcher(left).matches()
     }
 
-    static protected Map<String,String> parseAsMap(String lbl){
+    static protected Map<String,Object> parseAsMap(String lbl){
         def p = lbl.count('=')
         if( p != 1)
             return Collections.emptyMap() as Map<String,String>
@@ -708,7 +708,6 @@ class ProcessConfig implements Map<String,Object>, Cloneable {
      */
     ProcessConfig label(String lbl) {
         if( !lbl ) return this
-
         // -- check that label has a valid syntax
         if( !isValidLabel(lbl) )
             throw new IllegalConfigException("Not a valid process label: $lbl -- Label must consist of alphanumeric characters or '_', must start with an alphabetic character and must end with an alphanumeric character")
@@ -726,8 +725,33 @@ class ProcessConfig implements Map<String,Object>, Cloneable {
         return this
     }
 
+    List<String> getLabels() {
+        (List<String>) configProperties.get('label') ?: Collections.<String>emptyList()
+    }
+
     /**
-     * Implements the process {@code label} directive.
+     * Implements the process {@code resourceLabel} directive.
+     *
+     * Note this directive  can be specified (invoked) more than one time in
+     * the process context.
+     *
+     * @param lbl
+     *      The label to be attached to the process.
+     * @return
+     *      The {@link ProcessConfig} instance itself.
+     */
+    ProcessConfig resourceLabel(String lbl) {
+        if( !lbl ) return this
+        // -- check that label has a valid syntax
+        if( !isResourceLabelsSyntax(lbl) )
+            throw new IllegalConfigException("Not a valid process resource label: $lbl -- Label must consist of alphanumeric characters or '_', must start with an alphabetic character and must end with an alphanumeric character")
+        Map resource = parseAsMap(lbl)
+        resourceLabel(resource)
+        return this
+    }
+
+    /**
+     * Implements the process {@code resourceLabel} directive.
      *
      * Note this directive  can be specified (invoked) more than one time in
      * the process context.
@@ -737,37 +761,25 @@ class ProcessConfig implements Map<String,Object>, Cloneable {
      * @return
      *      The {@link ProcessConfig} instance itself.
      */
-    ProcessConfig label(Map<String, Object> map) {
+    ProcessConfig resourceLabel(Map<String, Object> map) {
         if( !map ) return this
 
-        // -- get the current sticker, it must be a Map
-        def allStickers = (Map)configProperties.get('resourceLabels')
-        if( !allStickers ) {
-            allStickers = [:]
+        def allResourceLabels = (Map<String,Object>)configProperties.get('resourceLabels')
+        if( !allResourceLabels ) {
+            allResourceLabels = [:]
+            configProperties.put('resourceLabels', allResourceLabels)
         }
-        // -- merge duplicates
-        allStickers += map
-        configProperties.put('resourceLabels', allStickers)
+        map.each{
+            // -- avoid duplicates
+            if( !allResourceLabels.containsKey(it.key) )
+                allResourceLabels[it.key] = it.value
+        }
+
         return this
     }
 
-    List<String> getLabels() {
-        (List<String>) configProperties.get('label') ?: Collections.<String>emptyList()
-    }
-
     Map<String,Object> getResourceLabels() {
-        if( !NF.isLabelsPropagationEnabled()) {
-            return Collections.emptyMap()
-        }
-        Map<String,Object> ret = [:]
-        ret.putAll getLabels().findAll({
-            isResourceLabelsSyntax(it)
-        }).inject([:], { Map map, String item ->
-            map.putAll(parseAsMap(item))
-            map
-        })
-        ret.putAll((configProperties.get('resourceLabels') ?: Collections.emptyMap()) as Map<String, Object>)
-        ret
+        (Map<String, Object>) configProperties.get('resourceLabels') ?: Collections.<String, Object>emptyMap()
     }
 
     ProcessConfig secret(String name) {
