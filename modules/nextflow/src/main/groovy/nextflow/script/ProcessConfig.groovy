@@ -71,6 +71,8 @@ class ProcessConfig implements Map<String,Object>, Cloneable {
             'module',
             'penv',
             'pod',
+            'post',
+            'pre',
             'publishDir',
             'scratch',
             'shell',

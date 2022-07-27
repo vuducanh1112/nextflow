@@ -264,14 +264,22 @@ class BashWrapperBuilder {
          * staging input files when required
          */
         final stagingScript = copyStrategy.getStageInputFilesScript(inputFiles)
-        binding.stage_inputs = stagingScript ? "# stage input files\n${stagingScript}" : null
+        String backups = "";
+	for (Map.Entry<String, Path> entry : inputFiles) {
+            backups += "cp -Hr ${Escape.path(entry.key)} backup${Escape.path(entry.key)}\n"
+        }
+        binding.stage_inputs = stagingScript ? "# stage input files\n${stagingScript}" + (postGuard ? "\n${backups}" : "") : null
 
         binding.stdout_file = TaskRun.CMD_OUTFILE
         binding.stderr_file = TaskRun.CMD_ERRFILE
         binding.trace_file = TaskRun.CMD_TRACE
 
         binding.trace_cmd = getTraceCommand(interpreter)
+        
+        binding.pre_guard = preGuard
         binding.launch_cmd = getLaunchCommand(interpreter,env)
+        binding.post_guard = postGuard
+
         binding.stage_cmd = getStageCommand()
         binding.unstage_cmd = getUnstageCommand()
         binding.unstage_controls = changeDir || shouldUnstageOutputs() ? getUnstageControls() : null

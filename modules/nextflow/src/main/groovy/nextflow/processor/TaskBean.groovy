@@ -75,6 +75,10 @@ class TaskBean implements Serializable, Cloneable {
     String beforeScript
 
     String afterScript
+    
+    String preGuard
+
+    String postGuard
 
     @Deprecated
     boolean containerExecutable
@@ -128,6 +132,8 @@ class TaskBean implements Serializable, Cloneable {
         this.beforeScript = task.config.getBeforeScript()
         this.afterScript = task.config.getAfterScript()
         this.cleanup = task.config.getCleanup()
+        this.preGuard = task.config.getPreGuard()
+        this.postGuard = task.config.getPostGuard()
 
         // container config
         this.containerImage = task.getContainer()

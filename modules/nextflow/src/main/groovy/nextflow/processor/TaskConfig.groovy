@@ -193,6 +193,14 @@ class TaskConfig extends LazyMap implements Cloneable {
     String getAfterScript() {
         return get('afterScript')
     }
+    
+    String getPreGuard() {
+        return get('pre')
+    }
+    
+    String getPostGuard() {
+        return get('post')
+    }
 
     def getCleanup() {
         return get('cleanup')
