@@ -58,6 +58,7 @@ class ProcessConfig implements Map<String,Object>, Cloneable {
             'debug',
             'disk',
             'echo', // deprecated
+            'ensure',
             'errorStrategy',
             'executor',
             'ext',
@@ -71,8 +72,9 @@ class ProcessConfig implements Map<String,Object>, Cloneable {
             'module',
             'penv',
             'pod',
-            'post',
-            'pre',
+            'postEmit',
+            'preEmit',
+            'promise',
             'publishDir',
             'scratch',
             'shell',
@@ -880,6 +882,22 @@ class ProcessConfig implements Map<String,Object>, Cloneable {
             configProperties.put('accelerator', value)
         else if( value != null )
             throw new IllegalArgumentException("Not a valid `accelerator` directive value: $value [${value.getClass().getName()}]")
+        return this
+    }
+
+    ProcessConfig preEmit( Map value ) {
+        if( value instanceof Map )
+            configProperties.put('preEmit', value)
+        else if( value != null )
+            throw new IllegalArgumentException("Not a valid `preEmit` directive value: $value [${value.getClass().getName()}]")
+        return this
+    }
+
+    ProcessConfig postEmit( Map value ) {
+        if( value instanceof Map )
+            configProperties.put('postEmit', value)
+        else if( value != null )
+            throw new IllegalArgumentException("Not a valid `postEmit` directive value: $value [${value.getClass().getName()}]")
         return this
     }
 

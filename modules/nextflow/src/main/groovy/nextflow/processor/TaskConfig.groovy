@@ -195,11 +195,19 @@ class TaskConfig extends LazyMap implements Cloneable {
     }
     
     String getPreGuard() {
-        return get('pre')
+        return get('ensure')
     }
     
     String getPostGuard() {
-        return get('post')
+        return get('promise')
+    }
+    
+    Map<Character, String> getPreEmit() {
+        return get('preEmit') as Map<Character, String>
+    }
+    
+    Map<Character, String> getPostEmit() {
+        return get('postEmit') as Map<Character, String>
     }
 
     def getCleanup() {

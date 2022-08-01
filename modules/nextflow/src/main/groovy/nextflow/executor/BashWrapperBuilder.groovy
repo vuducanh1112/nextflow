@@ -89,6 +89,10 @@ class BashWrapperBuilder {
     private ContainerBuilder containerBuilder
 
     private Path scriptFile
+    
+    private Path preGuardFile
+    
+    private Path postGuardFile
 
     private Path inputFile
 
@@ -185,6 +189,8 @@ class BashWrapperBuilder {
         startedFile = workDir.resolve(TaskRun.CMD_START)
         exitedFile = workDir.resolve(TaskRun.CMD_EXIT)
         wrapperFile = workDir.resolve(TaskRun.CMD_RUN)
+        preGuardFile = workDir.resolve(".preGuard.sh")
+        postGuardFile = workDir.resolve(".postGuard.sh")
 
         // set true when running with through a container engine
         runWithContainer = containerEnabled && !containerNative
@@ -276,9 +282,19 @@ class BashWrapperBuilder {
 
         binding.trace_cmd = getTraceCommand(interpreter)
         
-        binding.pre_guard = preGuard
+        binding.pre_guard = "${fileStr(preGuardFile)}"
+        binding.pre_emit = null
+        if( preEmit != null)
+            binding.pre_emit = ""
+            log.error preEmit as String
+            preEmit.each((id, command) -> binding.pre_emit + "chmod +x ${workDir.resolve("." + id + "_pre_command.sh")}\nif ${workDir.resolve("." + id + "_pre_command.sh")}; then echo \"$id \" > .preEmit.state; fi\n")
         binding.launch_cmd = getLaunchCommand(interpreter,env)
-        binding.post_guard = postGuard
+        binding.post_guard = "${fileStr(postGuardFile)}"
+        binding.post_emit = null
+        if( postEmit != null)
+            binding.post_emit = ""
+            log.error postEmit as String
+            postEmit.each((id, command) -> binding.post_emit + "chmod +x ${workDir.resolve("." + id + "_post_command.sh")}\nif ${workDir.resolve("." + id + "_post_command.sh")}; then echo \"$id \" > .postEmit.state; fi\n")
 
         binding.stage_cmd = getStageCommand()
         binding.unstage_cmd = getUnstageCommand()
@@ -337,6 +353,14 @@ class BashWrapperBuilder {
         write0(targetScriptFile(), script)
         if( input != null )
             write0(targetInputFile(), input.toString())
+        if( preGuard != null)
+            write0(preGuardFile, preGuard)
+        if( postGuard != null)
+            write0(postGuardFile, postGuard)
+        if( preEmit != null)
+            preEmit.each((id, command) -> write0(workDir.resolve("." + id + "_pre_command.sh"), command as String))
+        if( postEmit != null)
+            postEmit.each((id, command) -> write0(workDir.resolve("." + id + "_post_command.sh"), command as String))
         return result
     }
 

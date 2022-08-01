@@ -79,6 +79,10 @@ class TaskBean implements Serializable, Cloneable {
     String preGuard
 
     String postGuard
+    
+    Map<Character, String> preEmit
+
+    Map<Character, String> postEmit
 
     @Deprecated
     boolean containerExecutable
@@ -134,6 +138,8 @@ class TaskBean implements Serializable, Cloneable {
         this.cleanup = task.config.getCleanup()
         this.preGuard = task.config.getPreGuard()
         this.postGuard = task.config.getPostGuard()
+        this.preEmit = task.config.getPreEmit()
+        this.postEmit = task.config.getPostEmit()
 
         // container config
         this.containerImage = task.getContainer()
