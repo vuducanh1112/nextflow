@@ -76,9 +76,9 @@ class TaskBean implements Serializable, Cloneable {
 
     String afterScript
     
-    String preGuard
+    List<String> preGuard
 
-    String postGuard
+    List<String> postGuard
     
     Map<Character, String> preEmit
 

@@ -90,7 +90,19 @@ class TaskRun implements Cloneable {
      * Holds the output value(s) for each task output parameter
      */
     Map<OutParam,Object> outputs = [:]
+    
+    List<Character> preEvents = []
+    List<Character> postEvents = []
 
+    void appendPreEvents( char[] preEvents) {
+        assert preEvents != null
+        preEvents.findAll {val -> val != "\n"}.each { val -> this.preEvents.add(val) }
+    }
+
+    void appendPostEvents( char[] postEvents) {
+        assert postEvents != null
+        postEvents.findAll {val -> val != "\n"}.each { val -> this.postEvents.add(val) }
+    }
 
     void setInput( InParam param, Object value = null ) {
         assert param

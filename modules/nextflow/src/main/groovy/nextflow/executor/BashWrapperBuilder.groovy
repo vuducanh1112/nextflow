@@ -282,19 +282,25 @@ class BashWrapperBuilder {
 
         binding.trace_cmd = getTraceCommand(interpreter)
         
-        binding.pre_guard = "${fileStr(preGuardFile)}"
-        binding.pre_emit = null
-        if( preEmit != null)
-            binding.pre_emit = ""
-            log.error preEmit as String
-            preEmit.each((id, command) -> binding.pre_emit + "chmod +x ${workDir.resolve("." + id + "_pre_command.sh")}\nif ${workDir.resolve("." + id + "_pre_command.sh")}; then echo \"$id \" > .preEmit.state; fi\n")
+        binding.pre_guard = ""
+        if( preGuard) {
+            preGuard.eachWithIndex { val, index -> binding.pre_guard += "chmod +x ${workDir.resolve(".preGuard_" + index + ".sh")}\nif (! ${workDir.resolve(".preGuard_" + index + ".sh")}); then echo Pre Guard $index failed; exit 1; fi\n"}
+        }
+
+        binding.pre_emit = "touch ${workDir.resolve(".preEmit.state")}\n"
+        if( preEmit) {
+            preEmit.each((id, command) -> binding.pre_emit += "chmod +x ${workDir.resolve("." + id + "_pre_command.sh")}\nif ${workDir.resolve("." + id + "_pre_command.sh")}; then echo $id >> .preEmit.state; fi\n")
+        }
         binding.launch_cmd = getLaunchCommand(interpreter,env)
-        binding.post_guard = "${fileStr(postGuardFile)}"
-        binding.post_emit = null
-        if( postEmit != null)
-            binding.post_emit = ""
-            log.error postEmit as String
-            postEmit.each((id, command) -> binding.post_emit + "chmod +x ${workDir.resolve("." + id + "_post_command.sh")}\nif ${workDir.resolve("." + id + "_post_command.sh")}; then echo \"$id \" > .postEmit.state; fi\n")
+
+        binding.post_guard = ""
+        if( postGuard) {
+            postGuard.eachWithIndex { val, index -> binding.post_guard += "chmod +x ${workDir.resolve(".postGuard_" + index + ".sh")}\nif (! ${workDir.resolve(".postGuard_" + index + ".sh")}); then echo Post Guard $index failed; exit 1; fi\n"}
+        }
+        binding.post_emit = "touch ${workDir.resolve(".postEmit.state")}\n"
+        if( postEmit) {
+            postEmit.each((id, command) -> binding.post_emit += "chmod +x ${workDir.resolve("." + id + "_post_command.sh")}\nif ${workDir.resolve("." + id + "_post_command.sh")}; then echo $id >> .postEmit.state; fi\n")
+        }
 
         binding.stage_cmd = getStageCommand()
         binding.unstage_cmd = getUnstageCommand()
@@ -353,13 +359,13 @@ class BashWrapperBuilder {
         write0(targetScriptFile(), script)
         if( input != null )
             write0(targetInputFile(), input.toString())
-        if( preGuard != null)
-            write0(preGuardFile, preGuard)
-        if( postGuard != null)
-            write0(postGuardFile, postGuard)
-        if( preEmit != null)
+        if( preGuard)
+            preGuard.eachWithIndex { val, index -> write0(workDir.resolve(".preGuard_" + index + ".sh"), val as String)}
+        if( postGuard)
+            postGuard.eachWithIndex { val, index -> write0(workDir.resolve(".postGuard_" + index + ".sh"), val as String)}
+        if( preEmit)
             preEmit.each((id, command) -> write0(workDir.resolve("." + id + "_pre_command.sh"), command as String))
-        if( postEmit != null)
+        if( postEmit)
             postEmit.each((id, command) -> write0(workDir.resolve("." + id + "_post_command.sh"), command as String))
         return result
     }

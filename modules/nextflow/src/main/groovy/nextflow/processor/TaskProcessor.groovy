@@ -827,6 +827,7 @@ class TaskProcessor {
             task.config.exitStatus = TaskConfig.EXIT_ZERO
             // -- check if all output resources are available
             collectOutputs(task)
+            collectEvents(task)
             log.info "[skipping] Stored process > ${task.name}"
             // set the exit code in to the task object
             task.exitStatus = TaskConfig.EXIT_ZERO
@@ -903,6 +904,7 @@ class TaskProcessor {
             task.config.exitStatus = exitCode
             // -- check if all output resources are available
             collectOutputs(task, folder, stdoutFile, task.context)
+            collectEvents(task, folder)
 
             // set the exit code in to the task object
             task.cached = true
@@ -2150,6 +2152,7 @@ class TaskProcessor {
             task.config.exitStatus = task.exitStatus
             // -- if it's OK collect results and finalize
             collectOutputs(task)
+            collectEvents(task)
         }
         catch ( Throwable error ) {
             fault = resumeOrDie(task, error)
@@ -2230,6 +2233,39 @@ class TaskProcessor {
         }
 
         return result.toString()
+    }
+    
+    protected void collectEvents( TaskRun task ) {
+        collectEvents( task, task.getTargetDir() )
+    }
+    
+    protected void collectEvents( TaskRun task, Path workDir ) {
+
+    List<String> states = [".preEmit.state", ".postEmit.state"]
+    for ( String path in states) {
+        def file = workDir.resolve(path)
+        def exists = file.exists()
+        def result = null
+        if( exists )
+            result = file
+        else
+            log.debug "Process `${task.name}` is unable to find ${path}"
+        if( result ) {
+            result.toFile().withReader { reader -> {
+                    def content = reader.getText()
+                    switch ( path){
+                        case ".preEmit.state":
+                            task.appendPreEvents(content.toCharArray())
+                            break
+                        case ".postEmit.state":
+                            task.appendPostEvents(content.toCharArray())
+                            break
+                    }
+                }
+            }
+        }
+    }
+
     }
 
     /*

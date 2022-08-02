@@ -194,12 +194,12 @@ class TaskConfig extends LazyMap implements Cloneable {
         return get('afterScript')
     }
     
-    String getPreGuard() {
-        return get('ensure')
+    List<String> getPreGuard() {
+        return get('ensure') as List<String>
     }
     
-    String getPostGuard() {
-        return get('promise')
+    List<String> getPostGuard() {
+        return get('promise') as List<String>
     }
     
     Map<Character, String> getPreEmit() {

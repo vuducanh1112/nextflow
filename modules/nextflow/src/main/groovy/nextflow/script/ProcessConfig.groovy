@@ -886,18 +886,52 @@ class ProcessConfig implements Map<String,Object>, Cloneable {
     }
 
     ProcessConfig preEmit( Map value ) {
-        if( value instanceof Map )
+        if( value instanceof Map ) {
+            boolean isCharacters = value.every { (key, val) -> Character.isLetter(key)}
+            if (!isCharacters){
+                throw new IllegalArgumentException("Directive `preEmit` may not contain Character: ${key}")
+            }
             configProperties.put('preEmit', value)
+        }
         else if( value != null )
             throw new IllegalArgumentException("Not a valid `preEmit` directive value: $value [${value.getClass().getName()}]")
         return this
     }
 
     ProcessConfig postEmit( Map value ) {
-        if( value instanceof Map )
+        if( value instanceof Map ) {
+            boolean isCharacters = value.every { (key, val) -> Character.isLetter(key)}
+            if (!isCharacters){
+                throw new IllegalArgumentException("Directive `postEmit` may not contain Character: ${key}")
+            }
             configProperties.put('postEmit', value)
+        }
         else if( value != null )
             throw new IllegalArgumentException("Not a valid `postEmit` directive value: $value [${value.getClass().getName()}]")
+        return this
+    }
+    
+    ProcessConfig ensure( value ) {
+        if( value instanceof String ) {
+            configProperties.put('ensure', [value])
+        }
+        else if( value instanceof List<String> ) {
+            configProperties.put('ensure', value)
+        }
+        else if( value != null )
+            throw new IllegalArgumentException("Not a valid `ensure` directive value: $value [${value.getClass().getName()}]")
+        return this
+    }
+
+    ProcessConfig promise( value ) {
+        if( value instanceof String ) {
+            configProperties.put('promise', [value])
+        }
+        else if( value instanceof List<String> ) {
+            configProperties.put('promise', value)
+        }
+        else if( value != null )
+            throw new IllegalArgumentException("Not a valid `promise` directive value: $value [${value.getClass().getName()}]")
         return this
     }
 
