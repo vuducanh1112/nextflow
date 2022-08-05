@@ -26,6 +26,7 @@ class DefaultObserverFactory implements TraceObserverFactory {
         createDagObserver(result)
         createWebLogObserver(result)
         createAnsiLogObserver(result)
+        createRuntimeVerificationObserver(result)
         return result
     }
 
@@ -114,6 +115,10 @@ class DefaultObserverFactory implements TraceObserverFactory {
         config.navigate('trace.fields') { observer.setFieldsAndFormats(it) }
         config.navigate('trace.overwrite') { observer.overwrite = it }
         result << observer
+    }
+
+    protected void createRuntimeVerificationObserver(Collection<TraceObserver> result){
+        result << new RuntimeVerificationObserver()
     }
 
 }

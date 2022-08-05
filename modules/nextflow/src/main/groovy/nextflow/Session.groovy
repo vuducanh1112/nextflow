@@ -17,6 +17,8 @@
 
 package nextflow
 
+import nextflow.dag.RuntimeVerifier
+
 import static nextflow.Const.*
 
 import java.nio.file.Files
@@ -90,6 +92,11 @@ class Session implements ISession {
     final Collection<DataflowProcessor> allOperators = new ConcurrentLinkedQueue<>()
 
     final List<Closure> igniters = new ArrayList<>(20)
+
+    /**
+     * Enables Runtime Verification
+     */
+    RuntimeVerifier runtimeVerifier
 
     /**
      * Creates process executors
@@ -370,6 +377,7 @@ class Session implements ISession {
 
         // set the byte-code target directory
         this.classesDir = FileHelper.createLocalDir()
+        this.runtimeVerifier = new RuntimeVerifier() //TODO we might need config
         this.executorFactory = new ExecutorFactory(Plugins.manager)
         this.observers = createObservers()
         this.statsEnabled = observers.any { it.enableMetrics() }
