@@ -17,6 +17,7 @@
 package nextflow.processor
 
 import nextflow.Global
+import nextflow.dag.RuntimeVerifier.FormulaViolatedError
 
 import static nextflow.processor.ErrorStrategy.*
 
@@ -2155,6 +2156,9 @@ class TaskProcessor {
             // -- if it's OK collect results and finalize
             collectOutputs(task)
         }
+        catch (FormulaViolatedError error){
+            throw new ProcessFailedException(error)
+        }
         catch ( Throwable error ) {
             fault = resumeOrDie(task, error)
         }
@@ -2240,9 +2244,12 @@ class TaskProcessor {
 
         Set<Path> states = [workDir.resolve(".preEmit.state"), workDir.resolve(".postEmit.state")]
         for (final def state in states) {
-            state.moveTo(state.parent + "/." + this.name + state.fileName)
+            def lastModified = state.lastModified()
+            Path moveTo = state.parent + "/." + this.name + state.fileName
+            state.moveTo(moveTo)
             if(Global.session instanceof Session){
-                ((Session) Global.session).notifyFilePublish(state.parent + "/." + this.name + state.fileName)
+                moveTo.toFile().setLastModified(lastModified)
+                ((Session) Global.session).notifyFilePublish(moveTo)
             }
         }
 

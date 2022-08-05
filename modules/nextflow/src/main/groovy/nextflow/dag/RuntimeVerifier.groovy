@@ -1,48 +1,73 @@
 package nextflow.dag
 
-import groovy.transform.MapConstructor
+
 import nextflow.Global
 import nextflow.Session
-import nextflow.dag.DAG
+import nextflow.exception.ProcessFailedException
+import nextflow.verification.ModelChecker
+import nextflow.verification.SimpleConditionChecker
 
 import java.nio.file.Path
+import java.time.LocalDateTime
 
 class RuntimeVerifier {
-    private class Model {
-        @MapConstructor
+    class FormulaViolatedError extends Error{
+        FormulaViolatedError(String reason){
+            super(reason)
+        }
+    }
+    class Model {
         private class Node {
             String label
             List<Character> events
+            LocalDateTime time
+            Node(String label, List<Character> events, LocalDateTime time){
+                this.events = events
+                this.label = label
+                this.time = time
+            }
         }
-        @MapConstructor
         private class Edge {
             String label
             Node origin
             Node target
+            Edge(String label, Node target, Node origin){
+                this.label = label
+                this.target = target
+                this.origin = origin
+            }
         }
         List<Node> nodes = []
         List<Edge> edges = []
+        List<Node> trace = []
 
         void addNode(String label){
-            Node preNode = new Node(label: label + "Pre", events: [])
-            Node postNode = new Node(label: label + "Post", events: [])
+            if (label.endsWith("Pre") || label.endsWith("Post")){
+                throw new IllegalArgumentException("Due to the way runtime verification works we can not permit processes with labels ending in 'Pre' or 'Post'")
+            }
+            Node preNode = new Node(label + "Pre", null, null)
+            Node postNode = new Node(label + "Post", null, null)
             nodes.add(preNode)
             nodes.add(postNode)
-            edges.add(new Edge(label: label, origin: preNode, target: postNode))
+            trace.add(preNode)
+            trace.add(postNode)
+            edges.add(new Edge(label, preNode, postNode))
         }
 
-        void addEvents(String label, char[] events) {
+        void addEvents(String label, char[] events, LocalDateTime time) {
             Node node = nodes.find { (it.label == label) }
-            events.findAll {it != "\n"}.each {node.events.add((char) it)}
+            node.events = events.findAll {it != "\n"}
+            node.time = time
         }
 
         void addEdge(String label, String origin, String target){
-            edges.add(new Edge(label: label,
-                    origin: nodes.find { (it.label == origin + "Post") },
-                    target: nodes.find { (it.label == target + "Pre") }))
+            edges.add(new Edge(label,
+                    nodes.find { (it.label == origin + "Post") },
+                    nodes.find { (it.label == target + "Pre") }))
         }
     }
 
+    ModelChecker checker
     List<String> formulas
     boolean initialized
     Model model
@@ -50,13 +75,20 @@ class RuntimeVerifier {
     RuntimeVerifier(){
         Path formulaFile = Path.of("./formulas.rv")
         if (formulaFile.exists() && formulaFile.isFile()) {
-            formulaFile.toFile().getText() // TODO finish formula extraction
+            formulas = formulaFile.toFile().getText().split("@@@").findAll { it != ""}
+        } else {
+            formulas = []
         }
+        checker = new SimpleConditionChecker()
     }
 
-    void addEvents(String label, char[] events){
+    void addEvents(String label, char[] events, LocalDateTime time){
         initialize()
-        model.addEvents(label, events)
+        model.addEvents(label, events, time)
+        def allFailedFormulas = formulas.findAll {!checker.checkModel(it, model)}
+        if (allFailedFormulas){
+            throw new FormulaViolatedError("Process violated formulas: ${allFailedFormulas}, at state $label, with events ${events ?: []}")
+        }
     }
 
     private void initialize(){

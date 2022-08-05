@@ -18,6 +18,7 @@
 package nextflow
 
 import nextflow.dag.RuntimeVerifier
+import nextflow.dag.RuntimeVerifier.FormulaViolatedError
 
 import static nextflow.Const.*
 

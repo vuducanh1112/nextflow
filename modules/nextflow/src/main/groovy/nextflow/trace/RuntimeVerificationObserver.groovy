@@ -6,6 +6,8 @@ import nextflow.Session
 import nextflow.processor.TaskProcessor
 
 import java.nio.file.Path
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 
 @Slf4j
 class RuntimeVerificationObserver implements TraceObserver{
@@ -20,7 +22,7 @@ class RuntimeVerificationObserver implements TraceObserver{
                 return
             }
             def name = destination.baseName.split("\\.")[1]
-            ((Session) Global.session).runtimeVerifier.addEvents(name + suffix, destination.toFile().getText().toCharArray())
+            ((Session) Global.session).runtimeVerifier.addEvents(name + suffix, destination.toFile().getText().toCharArray(), LocalDateTime.ofEpochSecond((long) (destination.lastModified() / 1000), 0, ZoneOffset.UTC))
         }
     }
 }
