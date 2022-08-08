@@ -33,6 +33,7 @@ import nextflow.processor.ErrorStrategy
 import nextflow.processor.TaskConfig
 import static nextflow.util.CacheHelper.HashMode
 import nextflow.script.params.*
+import nextflow.script.ContractDSL
 
 /**
  * Holds the process configuration properties
@@ -121,6 +122,12 @@ class ProcessConfig implements Map<String,Object>, Cloneable {
     protected Map<String,Object> configProperties
 
     /**
+    * Contract DSL delegate
+    */
+    @Delegate
+    private ContractDSL contractDSL
+
+    /**
      * Reference to the main script object
      */
     private BaseScript ownerScript
@@ -155,6 +162,7 @@ class ProcessConfig implements Map<String,Object>, Cloneable {
         ownerScript = script
         configProperties = new LinkedHashMap()
         configProperties.putAll( DEFAULT_CONFIG )
+        contractDSL = new ContractDSL()
     }
 
     ProcessConfig( BaseScript script, String name ) {
