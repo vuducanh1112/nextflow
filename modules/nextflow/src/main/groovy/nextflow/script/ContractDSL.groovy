@@ -9,6 +9,18 @@ class ContractDSL {
         }
     }
 
+    private class Numeric {
+        String command
+
+        Numeric(String command) {
+            this.command = command
+        }
+
+        String render(){
+            return command.isNumber() ? command : "`$command`"
+        }
+    }
+
     Conditional EMPTY_FILE( String file ) {
     	return new Conditional("! test -s $file")
     }
@@ -33,8 +45,52 @@ class ContractDSL {
         return new Conditional("! ${condition.command}")
     }
 
+    Conditional AND(Conditional a, Conditional b) {
+        return new Conditional("${a.command} && ${b.command}")
+    }
+
+    Conditional OR(Conditional a, Conditional b) {
+        return new Conditional("${a.command} || ${b.command}")
+    }
+
     Conditional INPUT_NOT_CHANGED(String file) {
         return new Conditional("diff -r $file backup$file > /dev/null 2> /dev/null")
+    }
+
+    Numeric CPUS(){
+        return new Numeric("grep -c ^processor /proc/cpuinfo")
+    }
+
+    Numeric NUM(long number){
+        return new Numeric("$number");
+    }
+
+    Numeric COUNT_PATTERN(String file, String pattern){
+        return new Numeric("grep -cE \"$pattern\" $file")
+    }
+
+    Conditional GREATER_THAN(Numeric a, Numeric b){
+        return new Conditional("[ ${a.render()} -gt ${b.render()} ]")
+    }
+
+    Conditional LESS_THAN(Numeric a, Numeric b){
+        return new Conditional("[ ${a.render()} -lt ${b.render()} ]")
+    }
+
+    Conditional GREATER_EQUAL(Numeric a, Numeric b){
+        return new Conditional("[ ${a.render()} -ge ${b.render()} ]")
+    }
+
+    Conditional LESS_EQUAL(Numeric a, Numeric b){
+        return new Conditional("[ ${a.render()} -le ${b.render()} ]")
+    }
+
+    Conditional EQUAL(Numeric a, Numeric b){
+        return new Conditional("[ ${a.render()} -eq ${b.render()} ]")
+    }
+
+    Conditional COND(String command) {
+        return new Conditional(command)
     }
 
     Conditional TRUE = new Conditional("true")
