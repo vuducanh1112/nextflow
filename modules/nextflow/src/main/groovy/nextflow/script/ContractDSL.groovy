@@ -17,6 +17,10 @@ class ContractDSL {
         return "if ${condition.command}; then ${body}; fi"
     }
     
+    String FOR_ALL(String iterator, String toIterate, Closure<String> body){
+        return "for $iterator in ${toIterate}; do ${body.call('$' + iterator)}; done"
+    }
+    
     String IF_THEN_ELSE(Conditional condition, String then_body, String else_body){
         return "if ${condition.command}; then ${then_body}; else ${else_body}; fi"
     }
@@ -27,6 +31,10 @@ class ContractDSL {
 
     Conditional NOT(Conditional condition) {
         return new Conditional("! ${condition.command}")
+    }
+
+    Conditional INPUT_NOT_CHANGED(String file) {
+        return new Conditional("diff -r $file backup$file > /dev/null 2> /dev/null")
     }
 
     Conditional TRUE = new Conditional("true")
