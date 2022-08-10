@@ -2244,6 +2244,10 @@ class TaskProcessor {
 
         Set<Path> states = [workDir.resolve(".preEmit.state"), workDir.resolve(".postEmit.state")]
         for (final def state in states) {
+            if (!state.exists()){
+                state.toFile().write("");
+                log.warn "Task ${task.name} did not leave a ${state.fileName} file, verification might not work as expected!"
+            }
             def lastModified = state.lastModified()
             Path moveTo = state.parent + "/." + this.name + state.fileName
             state.moveTo(moveTo)

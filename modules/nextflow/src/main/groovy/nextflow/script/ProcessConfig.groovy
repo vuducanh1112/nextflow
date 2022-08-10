@@ -17,6 +17,9 @@
 
 package nextflow.script
 
+import com.sun.jdi.InvocationException
+
+import java.security.InvalidParameterException
 import java.util.regex.Pattern
 
 import groovy.transform.PackageScope
@@ -241,10 +244,16 @@ class ProcessConfig implements Map<String,Object>, Cloneable {
         if( configProperties.get(name) instanceof Closure )
             configProperties.remove(name)
 
-        this.metaClass.invokeMethod(this,name,args)
+        this.metaClass.invokeMethod(this,name,arddgs)
     }
 
     def methodMissing( String name, def args ) {
+        def dslMethods = ContractDSL.getMethods().findAll {it.name == name}
+        if (dslMethods){
+            def message = "Method `$name` was not invoked correctly got (${args.collect {it.getClass().simpleName}.join(", ")})!\nPossible invocation are:\n"
+            dslMethods.each { {message += "\t" + name + "(" + it.getParameterTypes().simpleName.join(", ") + ")"}}
+            throw new InvalidParameterException(message)
+        }
         checkName(name)
 
         if( args instanceof Object[] ) {
