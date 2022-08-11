@@ -1,5 +1,8 @@
 package nextflow.script
 
+import groovy.util.logging.Slf4j
+
+@Slf4j
 class ContractDSL {
     private class Conditional {
         String command
@@ -11,13 +14,27 @@ class ContractDSL {
 
     private class Numeric {
         String command
+        private boolean isLiteral
 
         Numeric(String command) {
             this.command = command
         }
 
+        Numeric(String command, boolean isLiteral){
+            this.command = command
+            this.isLiteral = isLiteral
+        }
+
         String render(){
-            return command.isNumber() ? command : "`$command`"
+            return command.isNumber() || isLiteral ? command : "`$command`"
+        }
+    }
+
+    private class Iterable {
+        String command
+
+        Iterable(String command){
+            this.command = command
         }
     }
 
@@ -28,9 +45,17 @@ class ContractDSL {
     String IF_THEN(Conditional condition, String body){
         return "if ${condition.command}; then ${body}; fi"
     }
-    
-    String FOR_ALL(String iterator, String toIterate, Closure<String> body){
-        return "for $iterator in ${toIterate}; do ${body.call('$' + iterator)}; done"
+
+    Iterable ITER(String command){
+        return new Iterable(command)
+    }
+
+    Iterable RANGE(long min, long max){
+        return new Iterable("{${min}..${max}}")
+    }
+
+    String FOR_ALL(String iterator, Iterable toIterate, Closure<String> body){
+        return "for $iterator in ${toIterate.command}; do ${body.call('$' + iterator)}; done"
     }
     
     String IF_THEN_ELSE(Conditional condition, String then_body, String else_body){
@@ -61,8 +86,12 @@ class ContractDSL {
         return new Numeric("grep -c ^processor /proc/cpuinfo")
     }
 
+    Numeric NUM(String number){
+        return new Numeric(number, true);
+    }
+
     Numeric NUM(long number){
-        return new Numeric("$number");
+        return new Numeric(number as String);
     }
 
     Numeric COUNT_PATTERN(String file, String pattern){
