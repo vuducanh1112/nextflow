@@ -11,7 +11,7 @@ import java.time.ZoneOffset
 
 @Slf4j
 class RuntimeVerificationObserver implements TraceObserver{
-    void onFilePublish(Path destination){
+    void onFilePublish(Path destination) {
         if (Global.session instanceof Session){
             String suffix
             if (destination.fileName.toString().endsWith(".preEmit.state")){

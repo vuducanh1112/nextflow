@@ -107,15 +107,15 @@ class RuntimeVerifier {
         List<DAG.Edge> dagEdges = processingDag.getEdges()
         model.nodes.each {node ->
             def edges = dagEdges.findAll { dagEdge ->
-                dagEdge.from.label + "Post" == node.label
+                dagEdge.from != null && dagEdge.from.label + "Post" == node.label
             }
             def done = false
             Set <String> targets = []
             while (!done) {
                 if (!edges.isEmpty()) {
                     List<DAG.Vertex> toNodes = edges.to
-                    targets += toNodes.findAll { it.type == DAG.Type.PROCESS }.label
-                    def invalidNodes = toNodes.findAll { it.type != DAG.Type.PROCESS }
+                    targets += toNodes.findAll {it != null && it.type == DAG.Type.PROCESS }.label
+                    def invalidNodes = toNodes.findAll {it != null && it.type != DAG.Type.PROCESS }
                     edges = dagEdges.findAll { it.from in invalidNodes }
                 } else {
                     done = true
