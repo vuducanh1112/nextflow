@@ -244,7 +244,7 @@ class ProcessConfig implements Map<String,Object>, Cloneable {
         if( configProperties.get(name) instanceof Closure )
             configProperties.remove(name)
 
-        this.metaClass.invokeMethod(this,name,arddgs)
+        this.metaClass.invokeMethod(this,name,args)
     }
 
     def methodMissing( String name, def args ) {
