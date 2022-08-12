@@ -87,15 +87,19 @@ class ContractDSL {
     }
 
     Numeric NUM(String number){
-        return new Numeric(number, true);
+        return new Numeric(number, true)
     }
 
     Numeric NUM(long number){
-        return new Numeric(number as String);
+        return new Numeric(number as String)
     }
 
     Numeric COUNT_PATTERN(String file, String pattern){
         return new Numeric("grep -cE \"$pattern\" $file")
+    }
+
+    Numeric COUNT_CASE_INSENSITIVE_PATTERN(String file, String pattern){
+        return new Numeric("grep -ciE \"$pattern\" $file")
     }
 
     Conditional GREATER_THAN(Numeric a, Numeric b){
