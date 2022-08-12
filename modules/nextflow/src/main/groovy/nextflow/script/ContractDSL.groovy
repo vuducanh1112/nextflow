@@ -126,4 +126,9 @@ class ContractDSL {
     
     Conditional FALSE = new Conditional("false")
 
+    String ALL_FILES_NON_EMPTY(String files){
+        return FOR_ALL("f", ITER(files), { String f -> RETURN(EMPTY_FILE(f))})
+    }
+
+    String COMMAND_LOGGED_NO_ERROR = RETURN(EQUAL(COUNT_CASE_INSENSITIVE_PATTERN(".commmand.err", "error"), NUM(0)))
 }
