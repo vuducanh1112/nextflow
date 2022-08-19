@@ -78,10 +78,6 @@ class ContractDSL {
         return new Conditional("${a.command} || ${b.command}")
     }
 
-    Conditional INPUT_NOT_CHANGED(String file) {
-        return new Conditional("diff -r $file backup$file > /dev/null 2> /dev/null")
-    }
-
     Numeric CPUS(){
         return new Numeric("grep -c ^processor /proc/cpuinfo")
     }
@@ -122,17 +118,36 @@ class ContractDSL {
         return new Conditional("[ ${a.render()} -eq ${b.render()} ]")
     }
 
+    Conditional EXISTS(String file) {
+        return new Conditional("[ -f $file ]")
+    }
+
     Conditional COND(String command) {
         return new Conditional(command)
     }
 
-    Conditional TRUE = new Conditional("true")
+    Conditional TRUE() {
+        new Conditional("true")
+    }
     
-    Conditional FALSE = new Conditional("false")
+    Conditional FALSE() {
+        new Conditional("false")
+    }
 
     String ALL_FILES_NON_EMPTY(String files){
         return FOR_ALL("f", ITER(files), { String f -> RETURN(EMPTY_FILE(f))})
     }
 
-    String COMMAND_LOGGED_NO_ERROR = RETURN(EQUAL(COUNT_CASE_INSENSITIVE_PATTERN(".commmand.err", "error"), NUM(0)))
+    String COMMAND_LOGGED_NO_ERROR() {
+        return IF_THEN_ELSE(EXISTS(".command.err"), RETURN(EQUAL(COUNT_CASE_INSENSITIVE_PATTERN(".command.err", "error"), NUM(0))), "exit 0")
+    }
+
+    String INPUTS_NOT_CHANGED() {
+        return "#!/bin/bash\n" +
+                "IFS=\$'\\n'\n" +
+                "for line in `cat .timestamps`\n" +
+                "do\n" +
+                "if ! [ \$(stat -Lc %Y \$(echo \$line | cut -d' ' -f1)) -eq \$(echo \$line | cut -d' ' -f2) ]; then exit 1; fi\n" +
+                "done"
+    };
 }

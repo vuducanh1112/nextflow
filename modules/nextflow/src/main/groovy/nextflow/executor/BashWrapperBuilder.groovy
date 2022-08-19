@@ -272,7 +272,7 @@ class BashWrapperBuilder {
         final stagingScript = copyStrategy.getStageInputFilesScript(inputFiles)
         String backups = "";
 	for (Map.Entry<String, Path> entry : inputFiles) {
-            backups += "cp -Hr ${Escape.path(entry.key)} backup${Escape.path(entry.key)}\n"
+            backups += "echo -n '${Escape.path(entry.key)} ' >> .timestamps\nstat -Lc %Y ${Escape.path(entry.key)} >> .timestamps\n"
         }
         binding.stage_inputs = stagingScript ? "# stage input files\n${stagingScript}" + (postGuard ? "\n${backups}" : "") : null
 
