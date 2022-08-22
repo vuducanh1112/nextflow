@@ -195,7 +195,7 @@ class TaskConfig extends LazyMap implements Cloneable {
     }
     
     List<String> getPreGuard() {
-        return get('ensure') as List<String>
+        return get('require') as List<String>
     }
     
     List<String> getPostGuard() {

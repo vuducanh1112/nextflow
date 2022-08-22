@@ -928,15 +928,15 @@ class ProcessConfig implements Map<String,Object>, Cloneable {
         return this
     }
     
-    ProcessConfig ensure( value ) {
+    ProcessConfig require( value ) {
         if( value instanceof String ) {
-            configProperties.put('ensure', [value])
+            configProperties.put('require', [value])
         }
         else if( value instanceof List<String> ) {
-            configProperties.put('ensure', value)
+            configProperties.put('require', value)
         }
         else if( value != null )
-            throw new IllegalArgumentException("Not a valid `ensure` directive value: $value [${value.getClass().getName()}]")
+            throw new IllegalArgumentException("Not a valid `require` directive value: $value [${value.getClass().getName()}]")
         return this
     }
 
