@@ -17,6 +17,8 @@
 
 package nextflow.processor
 
+import nextflow.script.ContractLevel
+
 import java.nio.file.Path
 
 import groovy.transform.CompileStatic
@@ -76,9 +78,9 @@ class TaskBean implements Serializable, Cloneable {
 
     String afterScript
     
-    List<String> preGuard
+    Map<String, ContractLevel> preGuard
 
-    List<String> postGuard
+    Map<String, ContractLevel> postGuard
     
     Map<Character, String> preEmit
 

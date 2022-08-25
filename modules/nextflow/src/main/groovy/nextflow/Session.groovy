@@ -19,6 +19,7 @@ package nextflow
 
 import nextflow.dag.RuntimeVerifier
 import nextflow.dag.RuntimeVerifier.FormulaViolatedError
+import nextflow.script.ContractLevel
 
 import static nextflow.Const.*
 
@@ -98,6 +99,11 @@ class Session implements ISession {
      * Enables Runtime Verification
      */
     RuntimeVerifier runtimeVerifier
+
+    /**
+     * Enable / disable tasks result caching
+     */
+    ContractLevel contractLevel
 
     /**
      * Creates process executors
@@ -379,6 +385,7 @@ class Session implements ISession {
         // set the byte-code target directory
         this.classesDir = FileHelper.createLocalDir()
         this.runtimeVerifier = new RuntimeVerifier() //TODO we might need config
+        this.contractLevel = ContractLevel.always
         this.executorFactory = new ExecutorFactory(Plugins.manager)
         this.observers = createObservers()
         this.statsEnabled = observers.any { it.enableMetrics() }

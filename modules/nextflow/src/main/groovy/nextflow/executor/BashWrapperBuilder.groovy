@@ -17,6 +17,8 @@
 
 package nextflow.executor
 
+import nextflow.script.ContractLevel
+
 import java.nio.file.FileSystemException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -284,7 +286,7 @@ class BashWrapperBuilder {
         
         binding.pre_guard = ""
         if( preGuard) {
-            preGuard.eachWithIndex { val, index -> binding.pre_guard += "chmod +x ${workDir.resolve(".preGuard_" + index + ".sh")}\nif (! ${workDir.resolve(".preGuard_" + index + ".sh")}); then echo Pre Guard $index failed > ${binding.stderr_file}; exit 1; fi\n"}
+            (preGuard as Map<String, ContractLevel>).findAll((key, value) -> value.shouldCheck())*.key.eachWithIndex { val, index -> binding.pre_guard += "chmod +x ${workDir.resolve(".preGuard_" + index + ".sh")}\nif (! ${workDir.resolve(".preGuard_" + index + ".sh")}); then echo Pre Guard $index failed > ${binding.stderr_file}; exit 1; fi\n"}
         }
 
         binding.pre_emit = "touch ${workDir.resolve(".preEmit.state")}\n"
@@ -295,7 +297,7 @@ class BashWrapperBuilder {
 
         binding.post_guard = ""
         if( postGuard) {
-            postGuard.eachWithIndex { val, index -> binding.post_guard += "chmod +x ${workDir.resolve(".postGuard_" + index + ".sh")}\nif (! ${workDir.resolve(".postGuard_" + index + ".sh")}); then echo Post Guard $index failed > ${binding.stderr_file}; exit 1; fi\n"}
+            (postGuard as Map<String, ContractLevel>).findAll((key, value) -> value.shouldCheck())*.key.eachWithIndex { val, index -> binding.post_guard += "chmod +x ${workDir.resolve(".postGuard_" + index + ".sh")}\nif (! ${workDir.resolve(".postGuard_" + index + ".sh")}); then echo Post Guard $index failed > ${binding.stderr_file}; exit 1; fi\n"}
         }
         binding.post_emit = "touch ${workDir.resolve(".postEmit.state")}\n"
         if( postEmit) {
@@ -360,9 +362,9 @@ class BashWrapperBuilder {
         if( input != null )
             write0(targetInputFile(), input.toString())
         if( preGuard)
-            preGuard.eachWithIndex { val, index -> write0(workDir.resolve(".preGuard_" + index + ".sh"), val as String)}
+            (preGuard as Map<String, ContractLevel>).findAll {(String key, ContractLevel value) -> value.shouldCheck()}*.key.eachWithIndex { val, index -> write0(workDir.resolve(".preGuard_" + index + ".sh"), val as String)}
         if( postGuard)
-            postGuard.eachWithIndex { val, index -> write0(workDir.resolve(".postGuard_" + index + ".sh"), val as String)}
+            (postGuard as Map<String, ContractLevel>).findAll {(String key, ContractLevel value) -> value.shouldCheck()}*.key.eachWithIndex { val, index -> write0(workDir.resolve(".postGuard_" + index + ".sh"), val as String)}
         if( preEmit)
             preEmit.each((id, command) -> write0(workDir.resolve("." + id + "_pre_command.sh"), command as String))
         if( postEmit)

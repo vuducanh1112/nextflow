@@ -4,6 +4,16 @@ import groovy.util.logging.Slf4j
 
 @Slf4j
 class ContractDSL {
+    def class Contract {
+        String command
+        ContractLevel level
+
+        Contract(String command, ContractLevel level){
+            this.command = command
+            this.level = level
+        }
+    }
+
     private class Conditional {
         String command
 
@@ -140,6 +150,14 @@ class ContractDSL {
 
     String COMMAND_LOGGED_NO_ERROR() {
         return IF_THEN_ELSE(EXISTS(".command.err"), RETURN(EQUAL(COUNT_CASE_INSENSITIVE_PATTERN(".command.err", "error"), NUM(0))), "exit 0")
+    }
+
+    Contract CONTRACT(String command){
+        return new Contract(command, ContractLevel.always)
+    }
+
+    Contract CONTRACT(String command, String level){
+        return new Contract(command, ContractLevel.getContractLevel(level))
     }
 
     String INPUTS_NOT_CHANGED() {
