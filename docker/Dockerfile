@@ -5,7 +5,7 @@ ENV NXF_HOME=/.nextflow
 ARG TARGETPLATFORM
 
 # copy docker client
-COPY dist/${TARGETPLATFORM}/docker /usr/local/bin/docker
+COPY dist/linux/amd64/docker /usr/local/bin/docker
 COPY entry.sh /usr/local/bin/entry.sh
 COPY nextflow /usr/local/bin/nextflow
 

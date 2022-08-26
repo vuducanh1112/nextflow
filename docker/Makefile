@@ -17,17 +17,13 @@ version ?= none
 
 build: dist/docker
 	cp ../nextflow .
-	docker build --platform linux/amd64 --output=type=docker --progress=plain --tag nextflow/nextflow:${version} .
+	docker build --platform linux/amd64 --output=type=docker --progress=plain --tag sparkaar/nf-modified:${version} .
 
 release: build
-	docker tag nextflow/nextflow:${version} nextflow/nextflow:latest
-	docker push nextflow/nextflow:${version}
-	docker push nextflow/nextflow:latest
+	docker tag sparkaar/nf-modified:${version} sparkaar/nf-modified:latest
+	docker push sparkaar/nf-modified:${version}
+	docker push sparkaar/nf-modified:latest
 	#
-	docker tag nextflow/nextflow:${version} public.ecr.aws/seqera-labs/nextflow:${version}
-	docker tag nextflow/nextflow:${version} public.ecr.aws/seqera-labs/nextflow:latest
-	docker push public.ecr.aws/seqera-labs/nextflow:${version}
-	docker push public.ecr.aws/seqera-labs/nextflow:latest
 
 #Static builds can now be found at:
 #

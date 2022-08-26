@@ -164,7 +164,7 @@ class K8sConfig implements Map<String,Object> {
     String getServiceAccount() { target.serviceAccount }
 
     String getNextflowImageName() {
-        final defImage = "nextflow/nextflow:${Const.APP_VER}"
+        final defImage = "sparkaar/nf-modified:${Const.APP_VER}"
         return target.navigate('nextflow.image', defImage)
     }
 
