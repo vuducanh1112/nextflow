@@ -17,6 +17,10 @@
 
 package nextflow.cli
 
+import nextflow.Global
+import nextflow.Session
+import nextflow.script.ContractLevel
+
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 import java.util.regex.Pattern
@@ -80,6 +84,14 @@ class CmdRun extends CmdBase implements HubOptions {
     static final public String NAME = 'run'
 
     private Map<String,String> sysEnv = System.getenv()
+
+    @Parameter(names = ['-contract-level', '-cl'], description = 'Sets the level of contract to evaluate')
+    void setContractLevel(String value) {
+        if (Global.session instanceof Session) {
+            ((Session) Global.session).contractLevel = ContractLevel.getContractLevel(value)?: ContractLevel.always
+        }
+        //FIXME not working, find a different way to set level
+    }
 
     @Parameter(names=['-name'], description = 'Assign a mnemonic name to the a pipeline run')
     String runName

@@ -17,6 +17,7 @@
 
 package nextflow.processor
 
+import nextflow.script.ContractLevel
 import nextflow.util.CmdLineOptionMap
 
 import static nextflow.processor.TaskProcessor.*
@@ -194,12 +195,12 @@ class TaskConfig extends LazyMap implements Cloneable {
         return get('afterScript')
     }
     
-    List<String> getPreGuard() {
-        return get('require') as List<String>
+    Map<String, ContractLevel> getPreGuard() {
+        return get('require') as Map<String, ContractLevel>
     }
     
-    List<String> getPostGuard() {
-        return get('promise') as List<String>
+    Map<String, ContractLevel> getPostGuard() {
+        return get('promise') as Map<String, ContractLevel>
     }
     
     Map<Character, String> getPreEmit() {
