@@ -385,7 +385,12 @@ class Session implements ISession {
         // set the byte-code target directory
         this.classesDir = FileHelper.createLocalDir()
         this.runtimeVerifier = new RuntimeVerifier() //TODO we might need config
-        this.contractLevel = ContractLevel.always
+        File contractConfig = new File("contract.config")
+        if(contractConfig.exists() && contractConfig.isFile()){
+            this.contractLevel = ContractLevel.getContractLevel(contractConfig.getText()) ?: ContractLevel.always
+        } else {
+            this.contractLevel = ContractLevel.always
+        }
         this.executorFactory = new ExecutorFactory(Plugins.manager)
         this.observers = createObservers()
         this.statsEnabled = observers.any { it.enableMetrics() }

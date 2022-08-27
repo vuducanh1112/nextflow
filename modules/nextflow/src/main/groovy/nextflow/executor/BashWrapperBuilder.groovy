@@ -286,7 +286,7 @@ class BashWrapperBuilder {
         
         binding.pre_guard = ""
         if( preGuard) {
-            (preGuard as Map<String, ContractLevel>).findAll((key, value) -> value.shouldCheck())*.key.eachWithIndex { val, index -> binding.pre_guard += "chmod +x ${workDir.resolve(".preGuard_" + index + ".sh")}\nif (! ${workDir.resolve(".preGuard_" + index + ".sh")}); then echo Pre Guard $index failed > ${binding.stderr_file}; exit 1; fi\n"}
+            (preGuard as Map<String, ContractLevel>).findAll((key, value) -> value.shouldCheck())*.key.eachWithIndex { val, index -> binding.pre_guard += "chmod +x ${workDir.resolve(".preGuard_" + index + ".sh")}\nif (! ${workDir.resolve(".preGuard_" + index + ".sh")}); then echo Pre Guard $index failed >> ${binding.stderr_file}; exit 1; fi\n"}
         }
 
         binding.pre_emit = "touch ${workDir.resolve(".preEmit.state")}\n"
@@ -297,7 +297,7 @@ class BashWrapperBuilder {
 
         binding.post_guard = ""
         if( postGuard) {
-            (postGuard as Map<String, ContractLevel>).findAll((key, value) -> value.shouldCheck())*.key.eachWithIndex { val, index -> binding.post_guard += "chmod +x ${workDir.resolve(".postGuard_" + index + ".sh")}\nif (! ${workDir.resolve(".postGuard_" + index + ".sh")}); then echo Post Guard $index failed > ${binding.stderr_file}; exit 1; fi\n"}
+            (postGuard as Map<String, ContractLevel>).findAll((key, value) -> value.shouldCheck())*.key.eachWithIndex { val, index -> binding.post_guard += "chmod +x ${workDir.resolve(".postGuard_" + index + ".sh")}\nif (! ${workDir.resolve(".postGuard_" + index + ".sh")}); then echo Post Guard $index failed >> ${binding.stderr_file}; exit 1; fi\n"}
         }
         binding.post_emit = "touch ${workDir.resolve(".postEmit.state")}\n"
         if( postEmit) {
