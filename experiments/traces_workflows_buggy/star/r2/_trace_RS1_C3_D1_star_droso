@@ -1,0 +1,29 @@
+task_id	hash	native_id	process	tag	name	status	exit	module	container	cpus	time	disk	memory	attempt	submit	start	complete	duration	realtime	queue	%cpu	%mem	rss	vmem	peak_rss	peak_vmem	rchar	wchar	syscr	syscw	read_bytes	write_bytes	vol_ctxt	inv_ctxt	env	workdir	script	scratch	error_action
+1	4d/3c27f7	nf-4d3c27f78c9652114207178cd8eaa0d3	STAR_INDEX_REFERENCE	-	STAR_INDEX_REFERENCE	COMPLETED	0	-	nfcore/rnaseq:1.4.2	1	-	-	8.5 GB	1	2022-11-10 16:12:51.142	2022-11-10 16:12:56.000	2022-11-10 16:21:11.000	8m 20s	6m 11s	-	95.3%	34.3%	5.4 GB	7.8 GB	5.4 GB	7.8 GB	2.7 GB	5.4 GB	75057	4196	128 KB	5.4 GB	911	1497	-	/workdir/ninon/work/4d/3c27f78c9652114207178cd8eaa0d3	
+    mkdir star
+    STAR \
+            --runMode genomeGenerate \
+            --genomeDir star/ \
+            --genomeFastaFiles Drosophila_melanogaster.BDGP6.32.dna.toplevel.fa \
+            --sjdbGTFfile Drosophila_melanogaster.BDGP6.32.106.gtf \
+            --runThreadN 4 \
+	
+    	true	-
+2	66/3d99c3	nf-663d99c316c82abaf6102f819353553f	FASTP	-	FASTP (1)	COMPLETED	0	-	biocontainers/fastp:v0.20.1_cv1	1	-	-	-	1	2022-11-10 16:12:51.346	2022-11-10 16:12:56.000	2022-11-10 16:23:37.000	10m 46s	6m 30s	-	99.1%	3.7%	593.1 MB	967.7 MB	593.1 MB	1 GB	1.5 GB	6.8 GB	193165	26889	2.6 MB	6.8 GB	40	79	-	/workdir/ninon/work/66/3d99c316c82abaf6102f819353553f	
+    fastp -i SRR14197369_1.fastq.gz -I SRR14197369_2.fastq.gz -o SRR14197369.R1.trimmed.fastq -O SRR14197369.R2.trimmed.fastq --detect_adapter_for_pe --json SRR14197369_fastp.json --html SRR14197369_fastp.html --thread 4
+    	true	-
+3	fc/b406de	nf-fcb406ded722896a3ba95f603c58502c	STAR_ALIGN	-	STAR_ALIGN (1)	COMPLETED	0	-	nfcore/rnaseq:1.4.2	1	-	-	8.5 GB	1	2022-11-10 16:23:41.330	2022-11-10 16:23:45.000	2022-11-10 17:05:58.000	42m 17s	36m 40s	-	98.3%	34.0%	5.3 GB	6.3 GB	5.3 GB	6.3 GB	10.4 GB	7.8 GB	933760	59310	504 KB	7.8 GB	177	27993	-	/workdir/ninon/work/fc/b406ded722896a3ba95f603c58502c	
+    STAR \
+        --genomeDir . \
+        --readFilesIn SRR14197369.R1.trimmed.fastq SRR14197369.R2.trimmed.fastq  \
+        --runThreadN 4 \
+        --outFileNamePrefix SRR14197369. \
+        --sjdbGTFfile Drosophila_melanogaster.BDGP6.32.106.gtf
+
+    	true	-
+4	5d/6e6f18	nf-5d6e6f18830f1849367225c724a34568	SAMTOOLS	-	SAMTOOLS (1)	COMPLETED	0	-	biocontainers/samtools:v1.7.0_cv4	1	-	-	-	1	2022-11-10 17:07:05.964	2022-11-10 17:07:11.000	2022-11-10 17:22:56.000	15m 50s	15m 12s	-	97.0%	21.6%	3.4 GB	4.4 GB	3.4 GB	4.5 GB	10.6 GB	3.8 GB	630113	571224	0	2 GB	104430	12525	-	/workdir/ninon/work/5d/6e6f18830f1849367225c724a34568	
+    samtools view -bS SRR14197369.Aligned.out.sam -@ 4 | samtools sort -o SRR14197369.sorted.bam -T tmp  -@ 4 
+    	true	-
+5	93/10a978	nf-9310a978d0fc254b33ad733066b16362	CUFFLINKS	-	CUFFLINKS (1)	FAILED	1	-	pgcbioinfo/cufflinks:2.2.1	1	-	-	-	1	2022-11-10 17:23:01.443	2022-11-10 17:23:06.000	2022-11-10 17:38:28.000	15m 27s	15m 22s	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	/workdir/ninon/work/93/10a978d0fc254b33ad733066b16362	
+    cufflinks -G Drosophila_melanogaster.BDGP6.32.106.gtf SRR14197369.sorted.bam  --num-threads 4
+    	true	TERMINATE

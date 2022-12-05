@@ -1,0 +1,50 @@
+digraph "_dag_RS1_C3_D1_hisat" {
+p0 [shape=point,label="",fixedsize=true,width=0.1,xlabel="Channel.fromFilePairs"];
+p1 [label="FASTQC"];
+p0 -> p1 [label="read_pairs_ch"];
+
+p1 [label="FASTQC"];
+p2 [shape=point];
+p1 -> p2;
+
+p0 [shape=point,label="",fixedsize=true,width=0.1,xlabel="Channel.fromFilePairs"];
+p3 [label="FASTP"];
+p0 -> p3 [label="read_pairs_ch"];
+
+p3 [label="FASTP"];
+p7 [label="HISAT2_ALIGN"];
+p3 -> p7;
+
+p3 [label="FASTP"];
+p4 [shape=point];
+p3 -> p4;
+
+p5 [shape=point,label="",fixedsize=true,width=0.1];
+p6 [label="HISAT2_INDEX_REFERENCE"];
+p5 -> p6 [label="reference"];
+
+p6 [label="HISAT2_INDEX_REFERENCE"];
+p7 [label="HISAT2_ALIGN"];
+p6 -> p7;
+
+p7 [label="HISAT2_ALIGN"];
+p8 [shape=point];
+p7 -> p8;
+
+p7 [label="HISAT2_ALIGN"];
+p9 [label="SAMTOOLS"];
+p7 -> p9;
+
+p9 [label="SAMTOOLS"];
+p11 [label="CUFFLINKS"];
+p9 -> p11;
+
+p10 [shape=point,label="",fixedsize=true,width=0.1];
+p11 [label="CUFFLINKS"];
+p10 -> p11 [label="annotation"];
+
+p11 [label="CUFFLINKS"];
+p12 [shape=point];
+p11 -> p12;
+
+}

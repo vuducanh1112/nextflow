@@ -1,0 +1,14 @@
+task_id	hostname	hash	native_id	process	tag	name	status	exit	module	container	cpus	time	disk	memory	attempt	submit	start	complete	duration	realtime	queue	%cpu	%mem	rss	vmem	peak_rss	peak_vmem	rchar	wchar	syscr	syscw	read_bytes	write_bytes	vol_ctxt	inv_ctxt	env	workdir	script	scratch	error_action
+2	wally176	03/1d06df	nf-031d06df99bb4933884572eb2dafa885	FASTQC	fastqc SRR14197369	FASTQC (fastqc SRR14197369)	COMPLETED	0	-	biocontainers/fastqc:v0.11.9_cv7	1	-	-	-	1	2022-11-10 14:06:20.657	2022-11-10 14:06:35.000	2022-11-10 14:09:44.000	3m 23s	3m 7s	-	96.7%	1.5%	236.3 MB	3.1 GB	238.9 MB	3.2 GB	1.5 GB	1.7 MB	3033302	8754	9.9 MB	2.2 MB	46	1	-	/workdir/ninon/work/03/1d06df99bb4933884572eb2dafa885	
+    fastqc SRR14197369_1.fastq.gz SRR14197369_2.fastq.gz --thread 4
+    	true	-
+1	wally080	4e/47cfe1	nf-4e47cfe14bb09a28669f238e90f86bf6	HISAT2_INDEX_REFERENCE	-	HISAT2_INDEX_REFERENCE	COMPLETED	0	-	nfcore/rnaseq:1.4.2	1	-	-	-	1	2022-11-10 14:06:20.246	2022-11-10 14:06:27.000	2022-11-10 14:10:04.000	3m 44s	3m 23s	-	97.2%	4.2%	676.4 MB	1.3 GB	726.1 MB	1.4 GB	823.7 MB	769.8 MB	69952	120660	6.1 MB	769.8 MB	43903	1186	-	/workdir/ninon/work/4e/47cfe14bb09a28669f238e90f86bf6	
+    hisat2-build Drosophila_melanogaster.BDGP6.32.dna.toplevel.fa Drosophila_melanogaster.BDGP6.32.dna.toplevel -p 4 
+    	true	-
+3	wally174	b7/f22a09	nf-b7f22a09e5e1cc54fd471ad0b151c95a	FASTP	-	FASTP (1)	COMPLETED	0	-	biocontainers/fastp:v0.20.1_cv1	1	-	-	-	1	2022-11-10 14:06:21.057	2022-11-10 14:06:31.000	2022-11-10 14:12:34.000	6m 13s	5m 19s	-	99.6%	3.6%	586.3 MB	967.7 MB	587.3 MB	1 GB	1.4 GB	6.9 GB	189267	26878	7.5 MB	6.9 GB	27	12	-	/workdir/ninon/work/b7/f22a09e5e1cc54fd471ad0b151c95a	
+    fastp -i SRR14197369_1.fastq.gz -I SRR14197369_2.fastq.gz -o SRR14197369.R1.trimmed.fastq -O SRR14197369.R2.trimmed.fastq --thread 1 --json SRR14197369_fastp.json --thread 4
+    	true	-
+4	wally080	8b/59b541	nf-8b59b541ce8bd857f6fa909ea4493ed6	HISAT2_ALIGN	-	HISAT2_ALIGN (1)	FAILED	1	-	nfcore/rnaseq:1.4.2	1	-	-	-	1	2022-11-10 14:12:58.365	2022-11-10 14:13:03.000	2022-11-10 14:26:59.000	14m 1s	13m 56s	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	/workdir/ninon/work/8b/59b541ce8bd857f6fa909ea4493ed6	
+    hisat2 -x Drosophila_melanogaster.BDGP6.32.dna.toplevel -1 SRR14197369.R1.trimmed.fastq -2 SRR14197369.R2.trimmed.fastq --new-summary --summary-file SRR14197369_summary.log -S SRR14197369.sam --thread 4 
+    sort SRR14197369.sam > SRR14197369.sam
+    	true	TERMINATE

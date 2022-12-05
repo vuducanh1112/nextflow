@@ -1,0 +1,50 @@
+digraph "_dag_RS1_C3_D1_star_droso" {
+p0 [shape=point,label="",fixedsize=true,width=0.1,xlabel="Channel.fromFilePairs"];
+p1 [label="FASTP"];
+p0 -> p1 [label="read_pairs_ch"];
+
+p1 [label="FASTP"];
+p8 [label="STAR_ALIGN"];
+p1 -> p8;
+
+p1 [label="FASTP"];
+p3 [shape=point];
+p1 -> p3;
+
+p1 [label="FASTP"];
+p2 [shape=point];
+p1 -> p2;
+
+p4 [shape=point,label="",fixedsize=true,width=0.1];
+p6 [label="STAR_INDEX_REFERENCE"];
+p4 -> p6 [label="reference"];
+
+p5 [shape=point,label="",fixedsize=true,width=0.1];
+p6 [label="STAR_INDEX_REFERENCE"];
+p5 -> p6 [label="annotation"];
+
+p6 [label="STAR_INDEX_REFERENCE"];
+p8 [label="STAR_ALIGN"];
+p6 -> p8;
+
+p7 [shape=point,label="",fixedsize=true,width=0.1];
+p8 [label="STAR_ALIGN"];
+p7 -> p8 [label="annotation"];
+
+p8 [label="STAR_ALIGN"];
+p9 [label="SAMTOOLS"];
+p8 -> p9;
+
+p9 [label="SAMTOOLS"];
+p11 [label="CUFFLINKS"];
+p9 -> p11;
+
+p10 [shape=point,label="",fixedsize=true,width=0.1];
+p11 [label="CUFFLINKS"];
+p10 -> p11 [label="annotation"];
+
+p11 [label="CUFFLINKS"];
+p12 [shape=point];
+p11 -> p12;
+
+}
