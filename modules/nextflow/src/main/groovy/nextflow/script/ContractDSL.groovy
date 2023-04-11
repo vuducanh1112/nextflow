@@ -36,7 +36,7 @@ class ContractDSL {
         }
 
         String render(){
-            return command.isNumber() || isLiteral ? command : "`$command`"
+            return command.isNumber() || isLiteral ? command : "\$($command)"
         }
     }
 
@@ -93,11 +93,14 @@ class ContractDSL {
     }
 
     Numeric NUM(String number){
-        return new Numeric(number, true)
+        if (number.isNumber()) {
+            return new Numeric(number, true)
+        }
+        return new Numeric(number, false)
     }
 
     Numeric NUM(long number){
-        return new Numeric(number as String)
+        return new Numeric(number as String, true)
     }
 
     Numeric COUNT_PATTERN(String file, String pattern){
@@ -106,6 +109,10 @@ class ContractDSL {
 
     Numeric COUNT_CASE_INSENSITIVE_PATTERN(String file, String pattern){
         return new Numeric("grep -ciE \"$pattern\" $file")
+    }
+
+    Conditional PATTERN_EXISTS(String file, String pattern, boolean case_sensitive){
+        return GREATER_THAN(case_sensitive ? COUNT_PATTERN(file, pattern) : COUNT_CASE_INSENSITIVE_PATTERN(file, pattern), NUM(0))
     }
 
     Conditional GREATER_THAN(Numeric a, Numeric b){
