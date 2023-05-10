@@ -356,20 +356,43 @@ class BashWrapperBuilder {
         if( statsEnabled && isMacOS() && !isContainerEnabled() )
             log.warn1("Task runtime metrics are not reported when using macOS without a container engine")
 
+        def actualScript = ""
+        def calls = ""
         final wrapper = buildNew0()
         final result = write0(targetWrapperFile(), wrapper)
-        write0(targetScriptFile(), script)
         if( input != null )
             write0(targetInputFile(), input.toString())
-        if( preGuard)
-            (preGuard as Map<String, ContractLevel>).findAll {(String key, ContractLevel value) -> value.shouldCheck()}*.key.eachWithIndex { val, index -> write0(workDir.resolve(".preGuard_" + index + ".sh"), val as String)}
-        if( postGuard)
-            (postGuard as Map<String, ContractLevel>).findAll {(String key, ContractLevel value) -> value.shouldCheck()}*.key.eachWithIndex { val, index -> write0(workDir.resolve(".postGuard_" + index + ".sh"), val as String)}
+        calls += "touch .preEmit.state\n"
         if( preEmit)
-            preEmit.each((id, command) -> write0(workDir.resolve("." + id + "_pre_command.sh"), command as String))
+            preEmit.each((id, command) -> {
+                actualScript += "echo \"" + sanitize(command as String) + "\" > " + "." + id + "_pre_command.sh\n"
+                calls += "/bin/bash ." + id + "_pre_command.sh\n"
+            })
+        if( preGuard)
+            (preGuard as Map<String, ContractLevel>).findAll((key, value) -> value.shouldCheck())*.key.eachWithIndex((command, index) -> {
+                actualScript += "echo \"" + sanitize(command as String) + "\" > " + ".preGuard_" + index + ".sh\n"
+                calls += "/bin/bash .preGuard_" + index + ".sh\n"
+            })
+        actualScript += "echo \"" + sanitize(script) + "\" > .command.main\n"
+        calls += "/bin/bash .command.main\n"
+        calls += "touch .postEmit.state\n"
         if( postEmit)
-            postEmit.each((id, command) -> write0(workDir.resolve("." + id + "_post_command.sh"), command as String))
+            postEmit.each((id, command) -> {
+                actualScript += "echo \"" + sanitize(command as String) + "\" > " + "." + id + "_post_command.sh\n"
+                calls += "/bin/bash ." + id + "_post_command.sh\n"
+            })
+        if( postGuard)
+            (postGuard as Map<String, ContractLevel>).findAll((key, value) -> value.shouldCheck())*.key.eachWithIndex((command, index) -> {
+                actualScript += "echo \"" + sanitize(command as String) + "\" > " + ".postGuard_" + index + ".sh\n"
+                calls += "/bin/bash .postGuard_" + index + ".sh\n"
+            })
+        actualScript += calls
+        write0(targetScriptFile(), actualScript)
         return result
+    }
+
+    private static String sanitize(String toSanitize) {
+        toSanitize.replace("\\", "\\\\").replace("\"", "\\\"").replace("!", "\\!").replace("~", "\\~").replace("\$", "\\\$").replace("`", "\\`")
     }
 
     protected Path targetWrapperFile() { return wrapperFile }

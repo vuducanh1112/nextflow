@@ -123,26 +123,6 @@ nxf_unstage() {
     {{unstage_outputs}}
 }
 
-nxf_pre_guard() {
-    true
-    {{pre_guard}}
-}
-
-nxf_post_guard() {
-    true
-    {{post_guard}}
-}
-
-nxf_pre_emit() {
-    true
-    {{pre_emit}}
-}
-
-nxf_post_emit() {
-    true
-    {{post_emit}}
-}
-
 nxf_main() {
     trap on_exit EXIT
     trap on_term TERM INT USR2
@@ -171,14 +151,10 @@ nxf_main() {
     tee1=$!
     tee {{stderr_file}} < $cerr >&2 &
     tee2=$!
-    nxf_pre_guard
-    nxf_pre_emit
     ( nxf_launch ) >$cout 2>$cerr &
     pid=$!
     wait $pid || nxf_main_ret=$?
     wait $tee1 $tee2
-    nxf_post_guard
-    nxf_post_emit
     {{unstage_cmd}}
     {{after_script}}
 }
