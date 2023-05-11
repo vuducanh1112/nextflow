@@ -212,7 +212,7 @@ class BashWrapperBuilder {
         /*
          * fetch the script interpreter i.e. BASH, Perl, Python, etc
          */
-        final interpreter = TaskProcessor.fetchInterpreter(script)
+        final interpreter = "/bin/bash"
 
         if( outputEnvNames ) {
             if( !isBash(interpreter) ) throw new IllegalArgumentException("Process output of type env is only allowed with Bash process command -- Current interpreter: $interpreter")
@@ -283,26 +283,7 @@ class BashWrapperBuilder {
         binding.trace_file = TaskRun.CMD_TRACE
 
         binding.trace_cmd = getTraceCommand(interpreter)
-        
-        binding.pre_guard = ""
-        if( preGuard) {
-            (preGuard as Map<String, ContractLevel>).findAll((key, value) -> value.shouldCheck())*.key.eachWithIndex { val, index -> binding.pre_guard += "chmod +x ${workDir.resolve(".preGuard_" + index + ".sh")}\nif (! ${workDir.resolve(".preGuard_" + index + ".sh")}); then echo Pre Guard $index failed >> ${binding.stderr_file}; exit 1; fi\n"}
-        }
-
-        binding.pre_emit = "touch ${workDir.resolve(".preEmit.state")}\n"
-        if( preEmit) {
-            preEmit.each((id, command) -> binding.pre_emit += "chmod +x ${workDir.resolve("." + id + "_pre_command.sh")}\nif ${workDir.resolve("." + id + "_pre_command.sh")}; then echo $id >> .preEmit.state; fi\n")
-        }
         binding.launch_cmd = getLaunchCommand(interpreter,env)
-
-        binding.post_guard = ""
-        if( postGuard) {
-            (postGuard as Map<String, ContractLevel>).findAll((key, value) -> value.shouldCheck())*.key.eachWithIndex { val, index -> binding.post_guard += "chmod +x ${workDir.resolve(".postGuard_" + index + ".sh")}\nif (! ${workDir.resolve(".postGuard_" + index + ".sh")}); then echo Post Guard $index failed >> ${binding.stderr_file}; exit 1; fi\n"}
-        }
-        binding.post_emit = "touch ${workDir.resolve(".postEmit.state")}\n"
-        if( postEmit) {
-            postEmit.each((id, command) -> binding.post_emit += "chmod +x ${workDir.resolve("." + id + "_post_command.sh")}\nif ${workDir.resolve("." + id + "_post_command.sh")}; then echo $id >> .postEmit.state; fi\n")
-        }
 
         binding.stage_cmd = getStageCommand()
         binding.unstage_cmd = getUnstageCommand()
@@ -366,25 +347,25 @@ class BashWrapperBuilder {
         if( preEmit)
             preEmit.each((id, command) -> {
                 actualScript += "echo \"" + sanitize(command as String) + "\" > " + "." + id + "_pre_command.sh\n"
-                calls += "/bin/bash ." + id + "_pre_command.sh\n"
+                calls += "chmod +x ." + id + "_pre_command.sh\n./." + id + "_pre_command.sh\n"
             })
         if( preGuard)
             (preGuard as Map<String, ContractLevel>).findAll((key, value) -> value.shouldCheck())*.key.eachWithIndex((command, index) -> {
                 actualScript += "echo \"" + sanitize(command as String) + "\" > " + ".preGuard_" + index + ".sh\n"
-                calls += "/bin/bash .preGuard_" + index + ".sh\n"
+                calls += "chmod +x .preGuard_" + index + ".sh\n./.preGuard_" + index + ".sh\n"
             })
         actualScript += "echo \"" + sanitize(script) + "\" > .command.main\n"
-        calls += "/bin/bash .command.main\n"
+        calls += "chmod +x .command.main\n./.command.main\n"
         calls += "touch .postEmit.state\n"
         if( postEmit)
             postEmit.each((id, command) -> {
                 actualScript += "echo \"" + sanitize(command as String) + "\" > " + "." + id + "_post_command.sh\n"
-                calls += "/bin/bash ." + id + "_post_command.sh\n"
+                calls += "chmod +x ." + id + "_post_command.sh\n./." + id + "_post_command.sh\n"
             })
         if( postGuard)
             (postGuard as Map<String, ContractLevel>).findAll((key, value) -> value.shouldCheck())*.key.eachWithIndex((command, index) -> {
                 actualScript += "echo \"" + sanitize(command as String) + "\" > " + ".postGuard_" + index + ".sh\n"
-                calls += "/bin/bash .postGuard_" + index + ".sh\n"
+                calls += "chmod +x .postGuard_" + index + ".sh\n./.postGuard_" + index + ".sh\n"
             })
         actualScript += calls
         write0(targetScriptFile(), actualScript)
@@ -392,7 +373,7 @@ class BashWrapperBuilder {
     }
 
     private static String sanitize(String toSanitize) {
-        toSanitize.replace("\\", "\\\\").replace("\"", "\\\"").replace("!", "\\!").replace("~", "\\~").replace("\$", "\\\$").replace("`", "\\`")
+        toSanitize.replace("\\", "\\\\").replace("\"", "\\\"").replace("\$", "\\\$").replace("`", "\\`")
     }
 
     protected Path targetWrapperFile() { return wrapperFile }
