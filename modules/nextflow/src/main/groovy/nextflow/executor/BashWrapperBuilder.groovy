@@ -343,6 +343,7 @@ class BashWrapperBuilder {
         final result = write0(targetWrapperFile(), wrapper)
         if( input != null )
             write0(targetInputFile(), input.toString())
+        actualScript += "date +%s\n"
         calls += "touch .preEmit.state\n"
         if( preEmit)
             preEmit.each((id, command) -> {
@@ -352,10 +353,12 @@ class BashWrapperBuilder {
         if( preGuard)
             (preGuard as Map<String, ContractLevel>).findAll((key, value) -> value.shouldCheck())*.key.eachWithIndex((command, index) -> {
                 actualScript += "echo \"" + sanitize(command as String) + "\" > " + ".preGuard_" + index + ".sh\n"
-                calls += "chmod +x .preGuard_" + index + ".sh\n./.preGuard_" + index + ".sh\n"
+                calls += "chmod +x .preGuard_" + index + ".sh\nif ! ./.preGuard_" + index + ".sh; then echo Pre Guard " + index + " failed >> .command.err && exit 1; fi\n"
             })
         actualScript += "echo \"" + sanitize(script) + "\" > .command.main\n"
+        calls += "date +%s\n"
         calls += "chmod +x .command.main\n./.command.main\n"
+        calls += "date +%s\n"
         calls += "touch .postEmit.state\n"
         if( postEmit)
             postEmit.each((id, command) -> {
@@ -365,8 +368,9 @@ class BashWrapperBuilder {
         if( postGuard)
             (postGuard as Map<String, ContractLevel>).findAll((key, value) -> value.shouldCheck())*.key.eachWithIndex((command, index) -> {
                 actualScript += "echo \"" + sanitize(command as String) + "\" > " + ".postGuard_" + index + ".sh\n"
-                calls += "chmod +x .postGuard_" + index + ".sh\n./.postGuard_" + index + ".sh\n"
+                calls += "chmod +x .postGuard_" + index + ".sh\nif ! ./.postGuard_" + index + ".sh; then echo Post Guard " + index + " failed >> .command.err && exit 1; fi\n"
             })
+        calls += "date +%s\n"
         actualScript += calls
         write0(targetScriptFile(), actualScript)
         return result
