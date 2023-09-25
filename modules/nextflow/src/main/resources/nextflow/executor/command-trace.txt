@@ -134,6 +134,11 @@ nxf_write_trace() {
     echo "syscw=${io_stat1[3]}"        >> $trace_file
     echo "read_bytes=${io_stat1[4]}"   >> $trace_file
     echo "write_bytes=${io_stat1[5]}"  >> $trace_file
+
+    ## contracts measurements
+    cat .pre_guard_duration.txt        >> $trace_file
+    cat .main_duration.txt             >> $trace_file
+    cat .post_guard_duration.txt       >> $trace_file
 }
 
 nxf_trace_mac() {
@@ -214,6 +219,11 @@ nxf_trace_linux() {
     ## fallback on a while loop checking the proc pseudo file system
     while [ -e /proc/$mem_proc ]; do nxf_sleep 0.1; done
     {{fix_ownership}}
+
+    ## contracts measurements
+    cat .pre_guard_duration.txt        >> $trace_file
+    cat .main_duration.txt             >> $trace_file
+    cat .post_guard_duration.txt       >> $trace_file
 }
 
 nxf_trace() {

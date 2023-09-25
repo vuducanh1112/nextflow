@@ -339,38 +339,94 @@ class BashWrapperBuilder {
 
         def actualScript = ""
         def calls = ""
+
+        if(isTraceRequired()){
+            // this is taken from command-run.txt. Its the way nextflow records timestamps
+            actualScript +=
+                    "\nnxf_date() {\n" +
+                            "    ## should return the current timestamp in milliseconds\n" +
+                            "    ## note1: some linux silently ignores the `%3N` option and returns the ts in seconds (len==10)\n" +
+                            "    ## note2: old date tool ignores the `%3N` option and append that string to the timestamp in seconds\n" +
+                            "    ## note3: mac date tools ignores the `%3N` option and the string `3N` is appended to the timestamp in seconds\n" +
+                            "    local ts=\$(date +%s%3N);\n" +
+                            "    if [[ \${#ts} == 10 ]]; then echo \${ts}000\n" +
+                            "    elif [[ \$ts == *%3N ]]; then echo \${ts/\\%3N/000}\n" +
+                            "    elif [[ \$ts == *3N ]]; then echo \${ts/3N/000}\n" +
+                            "    elif [[ \${#ts} == 13 ]]; then echo \$ts\n" +
+                            "    else echo \"Unexpected timestamp value: \$ts\"; exit 1\n" +
+                            "    fi\n" +
+                            "}\n\n"
+        }
+
+
         final wrapper = buildNew0()
         final result = write0(targetWrapperFile(), wrapper)
         if( input != null )
             write0(targetInputFile(), input.toString())
-        actualScript += "date +%s\n"
         calls += "touch .preEmit.state\n"
+        calls += "\n\n"
         if( preEmit)
             preEmit.each((id, command) -> {
                 actualScript += "echo \"" + sanitize(command as String) + "\" > " + "." + id + "_pre_command.sh\n"
                 calls += "chmod +x ." + id + "_pre_command.sh\n./." + id + "_pre_command.sh\n"
             })
-        if( preGuard)
+
+        calls += "pre_guard_duration=0\n"
+        if( preGuard) {
+            calls += "\n\n"
+            calls += "######## pre guard ########\n"
+
+            calls += "pre_guard_start_time_millis=\$(nxf_date)\n"
+
             (preGuard as Map<String, ContractLevel>).findAll((key, value) -> value.shouldCheck())*.key.eachWithIndex((command, index) -> {
                 actualScript += "echo \"" + sanitize(command as String) + "\" > " + ".preGuard_" + index + ".sh\n"
                 calls += "chmod +x .preGuard_" + index + ".sh\nif ! ./.preGuard_" + index + ".sh; then echo Pre Guard " + index + " failed >> .command.err && exit 1; fi\n"
             })
+
+            calls += "pre_guard_end_time_millis=\$(nxf_date)\n"
+            calls += "pre_guard_duration=\$((pre_guard_end_time_millis - pre_guard_start_time_millis))\n"
+
+            calls += "############################\n"
+            calls += "\n"
+        }
+        calls += "\n\n"
         actualScript += "echo \"" + sanitize(script) + "\" > .command.main\n"
-        calls += "date +%s\n"
-        calls += "chmod +x .command.main\n./.command.main\n"
-        calls += "date +%s\n"
+        calls += "chmod +x .command.main\n"
+        calls += "main_start_time_millis=\$(nxf_date)\n"
+
+        calls += "./.command.main\n"
+
+        calls += "main_end_time_millis=\$(nxf_date)\n"
+        calls += "main_duration=\$((main_end_time_millis - main_start_time_millis))\n"
+        calls += "\n\n"
+
         calls += "touch .postEmit.state\n"
         if( postEmit)
             postEmit.each((id, command) -> {
                 actualScript += "echo \"" + sanitize(command as String) + "\" > " + "." + id + "_post_command.sh\n"
                 calls += "chmod +x ." + id + "_post_command.sh\n./." + id + "_post_command.sh\n"
             })
-        if( postGuard)
+        calls += "post_guard_duration=0\n"
+        if( postGuard) {
+            calls += "\n\n"
+            calls += "######## post guard ########\n"
+            calls += "post_guard_start_time_millis=\$(nxf_date)\n"
+
             (postGuard as Map<String, ContractLevel>).findAll((key, value) -> value.shouldCheck())*.key.eachWithIndex((command, index) -> {
                 actualScript += "echo \"" + sanitize(command as String) + "\" > " + ".postGuard_" + index + ".sh\n"
                 calls += "chmod +x .postGuard_" + index + ".sh\nif ! ./.postGuard_" + index + ".sh; then echo Post Guard " + index + " failed >> .command.err && exit 1; fi\n"
             })
-        calls += "date +%s\n"
+
+            calls += "post_guard_end_time_millis=\$(nxf_date)\n"
+            calls += "post_guard_duration=\$((post_guard_end_time_millis - post_guard_start_time_millis))\n"
+            calls += "#############################\n"
+            calls += "\n"
+        }
+
+        calls += "echo \"pre_guard_duration=\$pre_guard_duration\" > .pre_guard_duration.txt\n"
+        calls += "echo \"main_duration=\$main_duration\" > .main_duration.txt\n"
+        calls += "echo \"post_guard_duration=\$post_guard_duration\" > .post_guard_duration.txt\n"
+
         actualScript += calls
         write0(targetScriptFile(), actualScript)
         return result
