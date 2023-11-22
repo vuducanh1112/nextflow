@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2022, Seqera Labs
- * Copyright 2013-2019, Centre for Genomic Regulation (CRG)
+ * Copyright 2013-2023, Seqera Labs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,9 +40,15 @@ class PodOptions {
 
     private Collection<PodMountConfig> mountConfigMaps
 
+    private Collection<PodMountCsiEphemeral> mountCsiEphemerals
+
+    private Collection<PodMountEmptyDir> mountEmptyDirs
+
     private Collection<PodMountSecret> mountSecrets
 
     private Collection<PodVolumeClaim> mountClaims
+
+    private Collection<PodHostMount> mountHostPaths
 
     private Map<String,String> labels = [:]
 
@@ -66,9 +71,12 @@ class PodOptions {
     PodOptions( List<Map> options=null ) {
         int size = options ? options.size() : 0
         envVars = new HashSet<>(size)
-        mountSecrets = new HashSet<>(size)
         mountConfigMaps = new HashSet<>(size)
+        mountCsiEphemerals = new HashSet<>(size)
+        mountEmptyDirs = new HashSet<>(size)
+        mountSecrets = new HashSet<>(size)
         mountClaims = new HashSet<>(size)
+        mountHostPaths = new HashSet<>(10)
         automountServiceAccountToken = true
         tolerations = new ArrayList<Map>(size)
         init(options)
@@ -95,13 +103,22 @@ class PodOptions {
             envVars << PodEnv.config(entry.env, entry.config)
         }
         else if( entry.mountPath && entry.secret ) {
-            mountSecrets <<  new PodMountSecret(entry)
+            mountSecrets << new PodMountSecret(entry)
         }
         else if( entry.mountPath && entry.config ) {
             mountConfigMaps << new PodMountConfig(entry)
         }
+        else if( entry.mountPath && entry.csi ) {
+            mountCsiEphemerals << new PodMountCsiEphemeral(entry)
+        }
+        else if( entry.mountPath && entry.emptyDir != null ) {
+            mountEmptyDirs << new PodMountEmptyDir(entry)
+        }
         else if( entry.mountPath && entry.volumeClaim ) {
             mountClaims << new PodVolumeClaim(entry)
+        }
+        else if( entry.mountPath && entry.hostPath instanceof CharSequence ) {
+            mountHostPaths << new PodHostMount(entry.hostPath, entry.mountPath)
         }
         else if( entry.pullPolicy || entry.imagePullPolicy ) {
             this.imagePullPolicy = entry.pullPolicy ?: entry.imagePullPolicy as String
@@ -148,7 +165,13 @@ class PodOptions {
 
     Collection<PodMountConfig> getMountConfigMaps() { mountConfigMaps }
 
+    Collection<PodMountCsiEphemeral> getMountCsiEphemerals() { mountCsiEphemerals }
+
+    Collection<PodMountEmptyDir> getMountEmptyDirs() { mountEmptyDirs }
+
     Collection<PodMountSecret> getMountSecrets() { mountSecrets }
+
+    Collection<PodHostMount> getMountHostPaths() { mountHostPaths }
 
     Collection<PodVolumeClaim> getVolumeClaims() { mountClaims }
 
@@ -209,6 +232,18 @@ class PodOptions {
         // config maps
         result.mountConfigMaps.addAll( mountConfigMaps )
         result.mountConfigMaps.addAll( other.mountConfigMaps )
+
+        // csi ephemeral volumes
+        result.mountCsiEphemerals.addAll( mountCsiEphemerals )
+        result.mountCsiEphemerals.addAll( other.mountCsiEphemerals )
+
+        // empty dirs
+        result.mountEmptyDirs.addAll( mountEmptyDirs )
+        result.mountEmptyDirs.addAll( other.mountEmptyDirs )
+
+        // host paths
+        result.mountHostPaths.addAll( mountHostPaths )
+        result.mountHostPaths.addAll( other.mountHostPaths )
 
         // secrets
         result.mountSecrets.addAll( mountSecrets )

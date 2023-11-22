@@ -21,6 +21,7 @@ import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 import groovy.util.logging.Slf4j
 import nextflow.Session
+import nextflow.executor.local.LocalExecutor
 import nextflow.k8s.K8sExecutor
 import nextflow.script.BodyDef
 import nextflow.script.ProcessConfig
@@ -44,6 +45,7 @@ class ExecutorFactory {
     final static Map<String, Class<? extends Executor>> BUILT_IN_EXECUTORS = [
             'nope': NopeExecutor,
             'local': LocalExecutor,
+            'flux': FluxExecutor,
             'sge':  SgeExecutor,
             'oge':  SgeExecutor,
             'uge':  SgeExecutor,
@@ -51,6 +53,7 @@ class ExecutorFactory {
             'pbs': PbsExecutor,
             'pbspro': PbsProExecutor,
             'slurm': SlurmExecutor,
+            'bridge': BridgeExecutor,
             'crg': CrgExecutor,
             'bsc': LsfExecutor,
             'condor': CondorExecutor,
@@ -209,7 +212,7 @@ class ExecutorFactory {
     }
 
     /**
-     * Find out the 'executor' to be used in the process definition or in teh session configuration object
+     * Find out the 'executor' to be used in the process definition or in the session configuration object
      *
      * @param taskConfig
      */

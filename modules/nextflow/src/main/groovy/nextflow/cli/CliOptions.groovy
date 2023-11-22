@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2022, Seqera Labs
- * Copyright 2013-2019, Centre for Genomic Regulation (CRG)
+ * Copyright 2013-2023, Seqera Labs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,13 +42,16 @@ class CliOptions {
     @Parameter(names=['-c','-config'], description = 'Add the specified file to configuration set')
     List<String> userConfig
 
+    @Parameter(names=['-config-ignore-includes'], description = 'Disable the parsing of config includes')
+    boolean ignoreConfigIncludes
+
     @Parameter(names=['-C'], description = 'Use the specified configuration file(s) overriding any defaults')
     List<String> config
 
     /**
      * the packages to trace
      */
-    @Parameter(names='-trace', hidden = true)
+    @Parameter(names='-trace', description = 'Enable trace level logging for the specified package name - multiple packages can be provided separating them with a comma e.g. \'-trace nextflow,io.seqera\'')
     List<String> trace
 
     /**
@@ -82,8 +84,8 @@ class CliOptions {
     @Parameter(names = ['-self-update'], description = 'Update nextflow to the latest version', arity = 0, hidden = true)
     boolean selfUpdate
 
-    @Parameter(names = ['-d','-dockerize'], description = 'Launch nextflow via Docker (experimental)', arity = 0)
-    boolean dockerize
+    @Parameter(names=['-remote-debug'], description = "Enable JVM interactive remote debugging (experimental)")
+    boolean remoteDebug
 
     Boolean ansiLog
 

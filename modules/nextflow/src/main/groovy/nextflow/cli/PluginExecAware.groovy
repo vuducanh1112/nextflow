@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2022, Seqera Labs
+ * Copyright 2013-2023, Seqera Labs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,8 @@ package nextflow.cli
  */
 interface PluginExecAware {
 
-    int exec(Launcher launcher, List<String> args)
+    static final String CMD_SEP = ':'
+
+    int exec(Launcher launcher, String pluginId, String cmd, List<String> args)
 
 }

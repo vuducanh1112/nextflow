@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2022, Seqera Labs
- * Copyright 2013-2019, Centre for Genomic Regulation (CRG)
+ * Copyright 2013-2023, Seqera Labs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +39,6 @@ import nextflow.trace.GraphObserver
 import nextflow.trace.ReportObserver
 import nextflow.trace.TimelineObserver
 import nextflow.trace.TraceFileObserver
-import nextflow.trace.WebLogObserver
 import nextflow.util.HistoryFile
 import nextflow.util.SecretHelper
 /**
@@ -284,7 +282,7 @@ class ConfigBuilder {
             env.putAll(System.getenv())
         }
         if( vars ) {
-            log.debug "Adding following variables to session environment: $vars"
+            log.debug "Adding the following variables to session environment: $vars"
             env.putAll(vars)
         }
 
@@ -323,7 +321,7 @@ class ConfigBuilder {
     }
 
     protected Map configVars() {
-        // this is needed to make sure to re-use the same
+        // this is needed to make sure to reuse the same
         // instance of the config vars across different instances of the ConfigBuilder
         // and prevent multiple parsing of the same params file (which can even be remote resource)
         return cacheableConfigVars(baseDir)
@@ -343,7 +341,10 @@ class ConfigBuilder {
     protected ConfigObject buildConfig0( Map env, List configEntries )  {
         assert env != null
 
-        final slurper = new ConfigParser().setRenderClosureAsString(showClosures)
+        final ignoreIncludes = options ? options.ignoreConfigIncludes : false
+        final slurper = new ConfigParser()
+                .setRenderClosureAsString(showClosures)
+                .setIgnoreIncludes(ignoreIncludes)
         ConfigObject result = new ConfigObject()
 
         if( cmdRun && (cmdRun.hasParams()) )
@@ -561,9 +562,30 @@ class ConfigBuilder {
             config.process[name] = parseValue(value)
         }
 
+        if( cmdRun.withoutConda && config.conda instanceof Map ) {
+            // disable conda execution
+            log.debug "Disabling execution with Conda as requested by command-line option `-without-conda`"
+            config.conda.enabled = false
+        }
+
         // -- apply the conda environment
         if( cmdRun.withConda ) {
-            config.process.conda = cmdRun.withConda
+            if( cmdRun.withConda != '-' )
+                config.process.conda = cmdRun.withConda
+            config.conda.enabled = true
+        }
+
+        if( cmdRun.withoutSpack && config.spack instanceof Map ) {
+            // disable spack execution
+            log.debug "Disabling execution with Spack as requested by command-line option `-without-spack`"
+            config.spack.enabled = false
+        }
+
+        // -- apply the spack environment
+        if( cmdRun.withSpack ) {
+            if( cmdRun.withSpack != '-' )
+                config.process.spack = cmdRun.withSpack
+            config.spack.enabled = true
         }
 
         // -- sets the resume option
@@ -573,9 +595,10 @@ class ConfigBuilder {
         if( config.isSet('resume') )
             config.resume = normalizeResumeId(config.resume as String)
 
-        // -- sets `dumpKeys` option
-        if( cmdRun.dumpHashes )
-            config.dumpHashes = cmdRun.dumpHashes
+        // -- sets `dumpHashes` option
+        if( cmdRun.dumpHashes ) {
+            config.dumpHashes = cmdRun.dumpHashes != '-' ? cmdRun.dumpHashes : 'default'
+        }
 
         if( cmdRun.dumpChannels )
             config.dumpChannels = cmdRun.dumpChannels.tokenize(',')
@@ -655,7 +678,7 @@ class ConfigBuilder {
             if( cmdRun.withWebLog != '-' )
                 config.weblog.url = cmdRun.withWebLog
             else if( !config.weblog.url )
-                config.weblog.url = WebLogObserver.DEF_URL
+                config.weblog.url = 'http://localhost'
         }
 
         // -- sets tower options
@@ -663,17 +686,41 @@ class ConfigBuilder {
             if( !(config.tower instanceof Map) )
                 config.tower = [:]
             config.tower.enabled = true
-            config.tower.endpoint = cmdRun.withTower
+            if( cmdRun.withTower != '-' )
+                config.tower.endpoint = cmdRun.withTower
+            else if( !config.tower.endpoint )
+                config.tower.endpoint = 'https://api.tower.nf'
         }
 
-        // -- nextflow setting
-        if( cmdRun.dsl1 || cmdRun.dsl2 ) {
-            if( config.nextflow !instanceof Map )
-                config.nextflow = [:]
-            if( cmdRun.dsl1 )
-                config.nextflow.enable.dsl = 1
-            if( cmdRun.dsl2 )
-                config.nextflow.enable.dsl = 2
+        // -- set wave options
+        if( cmdRun.withWave ) {
+            if( !(config.wave instanceof Map) )
+                config.wave = [:]
+            config.wave.enabled = true
+            if( cmdRun.withWave != '-' )
+                config.wave.endpoint = cmdRun.withWave
+            else if( !config.wave.endpoint )
+                config.wave.endpoint = 'https://wave.seqera.io'
+        }
+
+        // -- set fusion options
+        if( cmdRun.withFusion ) {
+            if( !(config.fusion instanceof Map) )
+                config.fusion = [:]
+            config.fusion.enabled = cmdRun.withFusion == 'true'
+        }
+
+        // -- set cloudcache options
+        final envCloudPath = env.get('NXF_CLOUDCACHE_PATH')
+        if( cmdRun.cloudCachePath || envCloudPath ) {
+            if( !(config.cloudcache instanceof Map) )
+                config.cloudcache = [:]
+            if( !config.cloudcache.isSet('enabled') )
+                config.cloudcache.enabled = true
+            if( cmdRun.cloudCachePath && cmdRun.cloudCachePath != '-' )
+                config.cloudcache.path = cmdRun.cloudCachePath
+            else if( !config.cloudcache.isSet('path') && envCloudPath )
+                config.cloudcache.path = envCloudPath
         }
 
         // -- add the command line parameters to the 'taskConfig' object
@@ -682,7 +729,7 @@ class ConfigBuilder {
 
         if( cmdRun.withoutDocker && config.docker instanceof Map ) {
             // disable docker execution
-            log.debug "Disabling execution in Docker contained as requested by cli option `-without-docker`"
+            log.debug "Disabling execution in Docker container as requested by command-line option `-without-docker`"
             config.docker.enabled = false
         }
 
@@ -698,13 +745,17 @@ class ConfigBuilder {
             configContainer(config, 'singularity', cmdRun.withSingularity)
         }
 
+        if( cmdRun.withApptainer ) {
+            configContainer(config, 'apptainer', cmdRun.withApptainer)
+        }
+
         if( cmdRun.withCharliecloud ) {
             configContainer(config, 'charliecloud', cmdRun.withCharliecloud)
         }
     }
 
     private void configContainer(ConfigObject config, String engine, def cli) {
-        log.debug "Enabling execution in ${engine.capitalize()} container as requested by cli option `-with-$engine ${cmdRun.withDocker}`"
+        log.debug "Enabling execution in ${engine.capitalize()} container as requested by command-line option `-with-$engine ${cmdRun.withDocker}`"
 
         if( !config.containsKey(engine) )
             config.put(engine, [:])
@@ -723,7 +774,7 @@ class ConfigBuilder {
         }
 
         if( !hasContainerDirective(config.process) )
-            throw new AbortOperationException("You have requested to run with ${engine.capitalize()} but no image were specified")
+            throw new AbortOperationException("You have requested to run with ${engine.capitalize()} but no image was specified")
 
     }
 
@@ -740,8 +791,8 @@ class ConfigBuilder {
                 return true
 
             def result = process
-                            .findAll { String name, value -> name.startsWith('$') && value instanceof Map }
-                            .find { String name, Map value -> value.container as boolean }  // the first non-empty `container` string
+                    .findAll { String name, value -> (name.startsWith('withName:') || name.startsWith('$')) && value instanceof Map }
+                    .find { String name, Map value -> value.container as boolean }  // the first non-empty `container` string
 
             return result as boolean
         }

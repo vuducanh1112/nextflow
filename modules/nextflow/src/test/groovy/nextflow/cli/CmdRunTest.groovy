@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2022, Seqera Labs
- * Copyright 2013-2019, Centre for Genomic Regulation (CRG)
+ * Copyright 2013-2023, Seqera Labs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,17 +16,25 @@
 
 package nextflow.cli
 
+
 import java.nio.file.Files
 
+import nextflow.SysEnv
 import nextflow.config.ConfigMap
 import nextflow.exception.AbortOperationException
+import org.junit.Rule
 import spock.lang.Specification
 import spock.lang.Unroll
+import test.OutputCapture
+
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 class CmdRunTest extends Specification {
+
+    @Rule
+    OutputCapture capture = new OutputCapture()
 
     @Unroll
     def 'should parse cmd param=#STR' () {
@@ -42,9 +49,13 @@ class CmdRunTest extends Specification {
         'false'     | false
         'foo'       | 'foo'
         '10'        | 10i
+        '-10'       | -10i
         '20.00'     | 20i
+        '-20.00'    | -20i
         '3000000000'| 3000000000l
         '20.33'     | 20.33d
+        '-20.33'    | -20.33d
+        '-foo'      | '-foo'
         '--foo'     | '--foo'
         '20x0'      | '20x0'
         '20.d'      | '20.d'
@@ -52,6 +63,19 @@ class CmdRunTest extends Specification {
         '20..0'     | '20..0'
         '20..'      | '20..'
         '..20'      | '..20'
+    }
+
+    def 'should not detect params type' () {
+        given:
+        SysEnv.push(NXF_DISABLE_PARAMS_TYPE_DETECTION: 'true')
+
+        expect:
+        CmdRun.parseParamValue('true')  == 'true'
+        CmdRun.parseParamValue('1000')  == '1000'
+        CmdRun.parseParamValue('hola')  == 'hola'
+
+        cleanup:
+        SysEnv.pop()
     }
 
     def 'should parse nested params' () {
@@ -333,5 +357,39 @@ class CmdRunTest extends Specification {
         and:
         // detect version from global default
         CmdRun.detectDslMode(new ConfigMap(), DSL2_SCRIPT, [:]) == '2'
+    }
+
+    def 'should warn for invalid config vars' () {
+        given:
+        def ENV = [NXF_ANSI_SUMMARY: 'true']
+
+        when:
+        new CmdRun().checkConfigEnv(new ConfigMap([env:ENV]))
+
+        then:
+        def warning = capture
+                .toString()
+                .readLines()
+                .findResults { line -> line.contains('WARN') ? line : null }
+                .join('\n')
+        and:
+        warning.contains('Nextflow variables must be defined in the launching environment - The following variable set in the config file is going to be ignored: \'NXF_ANSI_SUMMARY\'')
+    }
+
+    def 'should not warn for valid config vars' () {
+        given:
+        def ENV = [FOO: '/something', NXF_DEBUG: 'true']
+
+        when:
+        new CmdRun().checkConfigEnv(new ConfigMap([env:ENV]))
+
+        then:
+        def warning = capture
+                .toString()
+                .readLines()
+                .findResults { line -> line.contains('WARN') ? line : null }
+                .join('\n')
+        and:
+        !warning
     }
 }

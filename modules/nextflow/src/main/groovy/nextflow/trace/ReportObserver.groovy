@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2022, Seqera Labs
- * Copyright 2013-2019, Centre for Genomic Regulation (CRG)
+ * Copyright 2013-2023, Seqera Labs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +16,7 @@
 
 package nextflow.trace
 
-import java.nio.charset.Charset
+
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -25,6 +24,7 @@ import groovy.text.GStringTemplateEngine
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import nextflow.Session
+import nextflow.exception.AbortOperationException
 import nextflow.processor.TaskHandler
 import nextflow.processor.TaskId
 import nextflow.processor.TaskProcessor
@@ -40,7 +40,7 @@ import nextflow.script.WorkflowMetadata
 @CompileStatic
 class ReportObserver implements TraceObserver {
 
-    static final public String DEF_FILE_NAME = 'report.html'
+    static final public String DEF_FILE_NAME = "report-${TraceHelper.launchTimestampFmt()}.html"
 
     static final public int DEF_MAX_TASKS = 10_000
 
@@ -71,7 +71,7 @@ class ReportObserver implements TraceObserver {
     private ResourcesAggregator aggregator
 
     /**
-     * Overwrite existing trace file instead of rolling it
+     * Overwrite existing trace file (required in some cases, as rolling filename has been deprecated)
      */
     boolean overwrite
 
@@ -128,6 +128,9 @@ class ReportObserver implements TraceObserver {
     void onFlowCreate(Session session) {
         this.session = session
         this.aggregator = new ResourcesAggregator(session)
+        // check if the process exists
+        if( Files.exists(reportFile) && !overwrite )
+            throw new AbortOperationException("Report file already exists: ${reportFile.toUriString()} -- enable the 'report.overwrite' option in your config file to overwrite existing files")
     }
 
     /**
@@ -135,7 +138,7 @@ class ReportObserver implements TraceObserver {
      */
     @Override
     void onFlowComplete() {
-        log.debug "Flow completing -- rendering html report"
+        log.debug "Workflow completed -- rendering execution report"
         try {
             renderHtml()
         }
@@ -238,9 +241,7 @@ class ReportObserver implements TraceObserver {
     }
 
     protected String renderSummaryJson() {
-        final result = aggregator.renderSummaryJson()
-        log.debug "Execution report summary data:\n  ${result}"
-        return result
+        aggregator.renderSummaryJson()
     }
 
     protected String renderPayloadJson() {
@@ -280,13 +281,7 @@ class ReportObserver implements TraceObserver {
         if( parent )
             Files.createDirectories(parent)
 
-        if( overwrite )
-            Files.deleteIfExists(reportFile)
-        else
-            // roll the any trace files that may exist
-            reportFile.rollFile()
-
-        def writer = Files.newBufferedWriter(reportFile, Charset.defaultCharset())
+        def writer = TraceHelper.newFileWriter(reportFile, overwrite, 'Report')
         writer.withWriter { w -> w << html_output }
         writer.close()
     }

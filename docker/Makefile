@@ -1,5 +1,5 @@
 #
-#  Copyright 2013-2019, Centre for Genomic Regulation (CRG)
+#  Copyright 2013-2023, Seqera Labs
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,15 +15,23 @@
 
 version ?= none
 
-build: dist/docker
+build: dist/docker/amd64
 	cp ../nextflow .
-	docker build --platform linux/amd64 --output=type=docker --progress=plain --tag sparkaar/nf-modified:${version} .
+	docker buildx build --platform linux/amd64 --output=type=docker --progress=plain --tag nextflow/nextflow:${version} --build-arg TARGETPLATFORM=linux/amd64 .
+
+build-arm: dist/docker/arm64
+	cp ../nextflow .
+	docker buildx build --platform linux/arm64 --output=type=docker --progress=plain --tag nextflow/nextflow:${version} --build-arg TARGETPLATFORM=linux/arm64 .
 
 release: build
-	docker tag sparkaar/nf-modified:${version} sparkaar/nf-modified:latest
-	docker push sparkaar/nf-modified:${version}
-	docker push sparkaar/nf-modified:latest
+	docker tag nextflow/nextflow:${version} nextflow/nextflow:latest
+	docker push nextflow/nextflow:${version}
+	docker push nextflow/nextflow:latest
 	#
+	docker tag nextflow/nextflow:${version} public.ecr.aws/seqera-labs/nextflow:${version}
+	docker tag nextflow/nextflow:${version} public.ecr.aws/seqera-labs/nextflow:latest
+	docker push public.ecr.aws/seqera-labs/nextflow:${version}
+	docker push public.ecr.aws/seqera-labs/nextflow:latest
 
 #Static builds can now be found at:
 #
@@ -31,9 +39,11 @@ release: build
 #  MacOS:   https://download.docker.com/mac/static
 #  Windows: https://download.docker.com/win/static
 
-dist/docker:
+dist/docker/amd64:
 	mkdir -p dist/linux/amd64
 	curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-17.09.0-ce.tgz | tar --strip-components=1 -xvz -C dist/linux/amd64
-#	mkdir -p dist/linux/arm64
-#	curl -fsSL https://download.docker.com/linux/static/stable/aarch64/docker-17.09.0-ce.tgz | tar --strip-components=1 -xvz -C dist/linux/arm64
+
+dist/docker/arm64:
+	mkdir -p dist/linux/arm64
+	curl -fsSL https://download.docker.com/linux/static/stable/aarch64/docker-17.09.0-ce.tgz | tar --strip-components=1 -xvz -C dist/linux/arm64
 

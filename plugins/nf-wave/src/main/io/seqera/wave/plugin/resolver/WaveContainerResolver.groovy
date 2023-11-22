@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2022, Seqera Labs
+ * Copyright 2013-2023, Seqera Labs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import groovy.util.logging.Slf4j
 import io.seqera.wave.plugin.WaveClient
 import nextflow.Global
 import nextflow.Session
+import nextflow.container.resolver.ContainerInfo
 import nextflow.container.resolver.ContainerResolver
 import nextflow.container.resolver.DefaultContainerResolver
 import nextflow.plugin.Priority
@@ -40,10 +41,10 @@ import nextflow.processor.TaskRun
 class WaveContainerResolver implements ContainerResolver {
 
     private ContainerResolver defaultResolver = new DefaultContainerResolver()
-    private List<String> DOCKER_LIKE = ['docker','podman']
-    private final String DOCKER_PREFIX = 'docker://'
+    static final private List<String> DOCKER_LIKE = ['docker','podman','sarus']
+    static final private List<String> SINGULARITY_LIKE = ['singularity','apptainer']
+    static final private String DOCKER_PREFIX = 'docker://'
     private WaveClient client0
-
 
     synchronized protected WaveClient client() {
         if( client0 )
@@ -51,25 +52,36 @@ class WaveContainerResolver implements ContainerResolver {
         return client0 = new WaveClient( Global.session as Session )
     }
 
+    private String getContainerEngine0(TaskRun task) {
+        final config = task.getContainerConfig()
+        final result = config.getEngine()
+        if( result )
+            return result
+        // fallback to docker by default
+        log.warn "Missing engine in container config - offending value: $config"
+        return 'docker'
+    }
+
     @Override
-    String resolveImage(TaskRun task, String imageName) {
+    ContainerInfo resolveImage(TaskRun task, String imageName) {
         if( !client().enabled() )
             return defaultResolver.resolveImage(task, imageName)
 
+        final freeze = client().config().freezeMode()
+        final engine = getContainerEngine0(task)
+        final nativeSingularityBuild = freeze && engine in SINGULARITY_LIKE
         if( !imageName ) {
-            // when no image name is provider the module bundle should include a
-            // Dockerfile to build an image on-fly with a automatically assigned name
-            return waveContainer(task, null)
+            // when no image name is provided the module bundle should include a
+            // Dockerfile or a Conda recipe or a Spack recipe to build
+            // an image on-fly with an automatically assigned name
+            return waveContainer(task, null, nativeSingularityBuild)
         }
 
-        final engine = task.processor.executor.isContainerNative()
-                ? 'docker'  // <-- container native executor such as AWS Batch are implicitly docker based
-                : task.getContainerConfig().getEngine()
         if( engine in DOCKER_LIKE ) {
-            final targetImage = defaultResolver.resolveImage(task, imageName)
-            return waveContainer(task, targetImage)
+            final image = defaultResolver.resolveImage(task, imageName)
+            return waveContainer(task, image.target, false)
         }
-        else if( engine=='singularity' ) {
+        else if( engine in SINGULARITY_LIKE ) {
             // remove any `docker://` prefix if any
             if( imageName.startsWith(DOCKER_PREFIX) )
                 imageName = imageName.substring(DOCKER_PREFIX.length())
@@ -78,25 +90,39 @@ class WaveContainerResolver implements ContainerResolver {
                 return defaultResolver.resolveImage(task, imageName)
             }
             // fetch the wave container name
-            final targetImage = waveContainer(task, imageName)
-            // then adapt it to singularity format
-            return defaultResolver.resolveImage(task,targetImage)
+            final image = waveContainer(task, imageName, nativeSingularityBuild)
+            // oras prefixed container are served directly
+            if( image && image.target.startsWith("oras://") )
+                return image
+            // otherwise adapt it to singularity format
+            return defaultResolver.resolveImage(task, image.target)
         }
-        else {
-            // other engine are not supported by wave
-            return defaultResolver.resolveImage(task, imageName)
-        }
+        else
+            throw new IllegalArgumentException("Wave does not support '$engine' container engine")
     }
 
-
-    synchronized String waveContainer(TaskRun task, String container) {
-        final bundle = task.getModuleBundle()
-        final configUrl = client().config().containerConfigUrl()
-        if( container || bundle?.dockerfile ) {
-            return client().fetchContainerImage(bundle, container, configUrl)
+    /**
+     * Given the target {@link TaskRun} and container image name
+     * creates a {@link io.seqera.wave.plugin.WaveAssets} object which holds
+     * the corresponding resources to submit container request to the Wave backend
+     *
+     * @param task
+     *      An instance of {@link TaskRun} task representing the current task
+     * @param container
+     *      The container image name specified by the task. Can be {@code null} if the task
+     *      provides a Dockerfile or a Conda recipe or a Spack recipe
+     * @return
+     *      The container image name returned by the Wave backend or {@code null}
+     *      when the task does not request any container or dockerfile to build
+     */
+    protected ContainerInfo waveContainer(TaskRun task, String container, boolean singularity) {
+        final assets = client().resolveAssets(task, container, singularity)
+        if( assets ) {
+            return client().fetchContainerImage(assets)
         }
         // no container and no dockerfile, wave cannot do anything
-        log.trace "No container defined for task ${task.processor.name}"
+        log.trace "No container image or build recipe defined for task ${task.processor.name}"
         return null
     }
+
 }

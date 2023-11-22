@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2022, Seqera Labs
+ * Copyright 2013-2023, Seqera Labs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import java.nio.file.Paths
 import groovy.transform.CompileStatic
 import groovy.transform.Memoized
 import groovy.util.logging.Slf4j
+import nextflow.SysEnv
 import nextflow.extension.Bolts
 import nextflow.extension.FilesEx
 import org.pf4j.DefaultPluginManager
@@ -41,7 +42,7 @@ class PluginsFacade implements PluginStateListener {
 
     private static final String DEV_MODE = 'dev'
     private static final String PROD_MODE = 'prod'
-    private Map<String,String> env = new HashMap<>(System.getenv())
+    private Map<String,String> env = SysEnv.get()
 
     private String mode
     private Path root
@@ -152,18 +153,13 @@ class PluginsFacade implements PluginStateListener {
             return env.NXF_PLUGINS_DEFAULT!='false'
         }
         else if( env.containsKey('NXF_HOME') ) {
-            log.trace "Detected NXF_HOME - Using plugins defaults"
+            log.trace "Detected NXF_HOME - Using plugin defaults"
             return true
         }
         else {
-            log.trace "Disabling plugins defaults"
+            log.trace "Disabling plugin defaults"
             return false
         }
-    }
-
-    protected void init0(Path root) {
-        this.manager = createManager(root)
-        this.updater = createUpdater(root, manager)
     }
 
     protected CustomPluginManager createManager(Path root) {
@@ -191,13 +187,33 @@ class PluginsFacade implements PluginStateListener {
 
     void init(boolean embedded=false) {
         if( manager )
-            throw new IllegalArgumentException("Plugin system was already setup")
+            throw new IllegalArgumentException("Plugin system already setup")
 
         log.debug "Setting up plugin manager > mode=${mode}; embedded=$embedded; plugins-dir=$root; core-plugins: ${defaultPlugins.toSortedString()}"
         // make sure plugins dir exists
         if( mode!=DEV_MODE && !FilesEx.mkdirs(root) )
             throw new IOException("Unable to create plugins dir: $root")
-        init0(root)
+
+        this.manager = createManager(root)
+        this.updater = createUpdater(root, manager)
+        manager.loadPlugins()
+        if( embedded ) {
+            manager.startPlugins()
+            this.embedded = embedded
+        }
+    }
+
+    void init(Path root, String mode, CustomPluginManager pluginManager) {
+        if( manager )
+            throw new IllegalArgumentException("Plugin system already setup")
+        this.root = root
+        this.mode = mode
+        // setup plugin manager
+        this.manager = pluginManager
+        this.manager.addPluginStateListener(this)
+        // setup the updater
+        this.updater = createUpdater(root, manager)
+        // load plugins
         manager.loadPlugins()
         if( embedded ) {
             manager.startPlugins()
@@ -212,7 +228,7 @@ class PluginsFacade implements PluginStateListener {
 
     void load(Map config) {
         if( !manager )
-            throw new IllegalArgumentException("Plugin system has not been initialised yet")
+            throw new IllegalArgumentException("Plugin system has not been initialized")
         start(pluginsRequirement(config))
     }
 
@@ -236,10 +252,10 @@ class PluginsFacade implements PluginStateListener {
             return manager.getExtensions(type)
         }
         else {
-            // this should oly be used to load system extensions
+            // this should only be used to load system extensions
             // i.e. included in the app class path not provided by
             // a plugin extension
-            log.debug "Using Default plugins manager"
+            log.debug "Using Default plugin manager"
             return defaultManager().getExtensions(type)
         }
     }
@@ -296,16 +312,16 @@ class PluginsFacade implements PluginStateListener {
 
     void start( String pluginId ) {
         if( isSelfContained() && defaultPlugins.hasPlugin(pluginId) ) {
-            log.debug "Plugin 'start' is not required in self-contained mode -- ignoring it for plugin: $pluginId"
+            log.debug "Plugin 'start' is not required in self-contained mode -- ignoring for plugin: $pluginId"
             return
         }
 
-        start( defaultPlugins.getPlugin(pluginId) )
+        start(PluginSpec.parse(pluginId, defaultPlugins))
     }
 
     void start(PluginSpec plugin) {
         if( isSelfContained() && defaultPlugins.hasPlugin(plugin.id) ) {
-            log.debug "Plugin 'start' is not required in self-contained mode -- ignoring it for plugin: $plugin.id"
+            log.debug "Plugin 'start' is not required in self-contained mode -- ignoring for plugin: $plugin.id"
             return
         }
 
@@ -335,7 +351,7 @@ class PluginsFacade implements PluginStateListener {
         def specs = parseConf(config)
         if( isSelfContained() && specs ) {
             // custom plugins are not allowed for nextflow self-contained package
-            log.warn "Nextflow self-contained distribution only allows core plugins -- User config plugins will be ignored: ${specs.join(',')}"
+            log.warn "Nextflow self-contained distribution allows only core plugins -- User config plugins will be ignored: ${specs.join(',')}"
             return Collections.emptyList()
         }
         if( specs ) {
@@ -348,8 +364,16 @@ class PluginsFacade implements PluginStateListener {
         }
 
         // add tower plugin when config contains tower options
-        if( (config.containsKey('tower') || env.TOWER_ACCESS_TOKEN ) && !specs.find {it.id == 'tower' } ) {
+        if( (Bolts.navigate(config,'tower.enabled') || env.TOWER_ACCESS_TOKEN ) && !specs.find {it.id == 'nf-tower' } ) {
             specs << defaultPlugins.getPlugin('nf-tower')
+        }
+        if( (Bolts.navigate(config,'wave.enabled') || Bolts.navigate(config,'fusion.enabled')) && !specs.find {it.id == 'nf-wave' } ) {
+            specs << defaultPlugins.getPlugin('nf-wave')
+        }
+
+        // add cloudcache plugin when cloudcache is enabled in the config
+        if( Bolts.navigate(config, 'cloudcache.enabled')==true ) {
+            specs << defaultPlugins.getPlugin('nf-cloudcache')
         }
 
         log.debug "Plugins resolved requirement=$specs"
@@ -382,6 +406,9 @@ class PluginsFacade implements PluginStateListener {
         if( executor == 'azurebatch' || workDir?.startsWith('az://') || bucketDir?.startsWith('az://') )
             plugins << defaultPlugins.getPlugin('nf-azure')
 
+        if( Bolts.navigate(config, 'weblog.enabled'))
+            plugins << new PluginSpec('nf-weblog')
+            
         return plugins
     }
 
@@ -422,14 +449,14 @@ class PluginsFacade implements PluginStateListener {
     }
 
     /**
-     * Merge two list of plugins requirement
+     * Merge two lists of plugin requirements
      *
      * @param configPlugins
      *      The list of plugins specified via the configuration file. This has higher priority
      * @param defaultPlugins
      *      The list of plugins specified via the environment
      * @return
-     *      The list of plugins resulting from merging the twos
+     *      The list of plugins resulting from merging the two lists
      */
     protected List<PluginSpec> mergePluginSpecs(List<PluginSpec> configPlugins, List<PluginSpec> defaultPlugins) {
         final map = new LinkedHashMap<String,PluginSpec>(10)
@@ -438,7 +465,7 @@ class PluginsFacade implements PluginStateListener {
             map.put(plugin.id, plugin)
         }
         // add the plugin in the 'defaultPlugins' argument
-        // when the map contains already the plugin,
+        // if the map already contains the plugin,
         // override it only if it does not specify a version
         for( PluginSpec plugin : defaultPlugins ) {
             if( !map[plugin.id] || !map[plugin.id].version ) {

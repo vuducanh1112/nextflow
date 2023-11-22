@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2022, Seqera Labs
- * Copyright 2013-2019, Centre for Genomic Regulation (CRG)
+ * Copyright 2013-2023, Seqera Labs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +16,6 @@
 
 package nextflow.processor
 
-import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.Condition
@@ -28,9 +26,11 @@ import com.google.common.util.concurrent.RateLimiter
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import nextflow.Session
+import nextflow.exception.ProcessSubmitTimeoutException
 import nextflow.executor.BatchCleanup
 import nextflow.executor.GridTaskHandler
 import nextflow.util.Duration
+import nextflow.util.Threads
 import nextflow.util.Throttle
 /**
  * Monitors the queued tasks waiting for their termination
@@ -135,8 +135,8 @@ class TaskPollingMonitor implements TaskMonitor {
         this.dumpInterval = (params.dumpInterval as Duration) ?: Duration.of('5min')
         this.capacity = (params.capacity ?: 0) as int
 
-        this.pendingQueue = new LinkedBlockingQueue()
-        this.runningQueue = capacity ? new ArrayBlockingQueue<TaskHandler>(capacity) : new LinkedBlockingQueue<TaskHandler>()
+        this.pendingQueue = new LinkedBlockingQueue<TaskHandler>()
+        this.runningQueue = new LinkedBlockingQueue<TaskHandler>()
     }
 
     static TaskPollingMonitor create( Session session, String name, int defQueueSize, Duration defPollInterval ) {
@@ -271,7 +271,7 @@ class TaskPollingMonitor implements TaskMonitor {
      */
     @Override
     TaskMonitor start() {
-        log.trace ">>> barrier register (monitor: ${this.name})"
+        log.debug ">>> barrier register (monitor: ${this.name})"
         session.barrier.register(this)
 
         this.taskCompleteLock = new ReentrantLock()
@@ -288,18 +288,21 @@ class TaskPollingMonitor implements TaskMonitor {
         session.onShutdown { this.cleanup() }
 
         // launch the thread polling the queue
-        Thread.start('Task monitor') {
+        Threads.start('Task monitor') {
             try {
                 pollLoop()
             }
+            catch (Throwable e) {
+                log.debug "Unexpected error in tasks monitor pool loop", e
+            }
             finally {
-                log.trace "<<< barrier arrives (monitor: ${this.name})"
+                log.debug "<<< barrier arrives (monitor: ${this.name}) - terminating tasks monitor poll loop"
                 session.barrier.arrive(this)
             }
         }
 
         // launch daemon that submits tasks for execution
-        Thread.startDaemon('Task submitter', this.&submitLoop)
+        Threads.start('Task submitter', this.&submitLoop)
 
         return this
     }
@@ -341,7 +344,7 @@ class TaskPollingMonitor implements TaskMonitor {
 
     private RateLimiter newRateLimiter( String X, String Y, String limit ) {
         if( !X.isInteger() )
-            throw new IllegalArgumentException("Invalid submit-rate-limit value: $limit -- It must be provide using the following format `num request / duration` eg. 10/1s")
+            throw new IllegalArgumentException("Invalid submit-rate-limit value: $limit -- It must be provided using the following format `num request / duration` eg. 10/1s")
 
         final num = Integer.parseInt(X)
         final duration = Y.isInteger() ? Duration.of( Y+'sec' ) : ( Y[0].isInteger() ? Duration.of(Y) : Duration.of('1'+Y) )
@@ -349,7 +352,7 @@ class TaskPollingMonitor implements TaskMonitor {
         if( !seconds )
             throw new IllegalArgumentException("Invalid submit-rate-limit value: $limit -- The interval must be at least 1 second")
 
-        log.debug "Creating submit rate limit of $num reqs by $seconds seconds"
+        log.debug "Creating submit rate limit of $num submissions per $seconds seconds"
         return RateLimiter.create( num / seconds as double )
     }
 
@@ -434,7 +437,7 @@ class TaskPollingMonitor implements TaskMonitor {
         try {
             def pending = runningQueue.size()
             if( !pending ) {
-                log.debug "No more task to compute -- ${session.dumpNetworkStatus() ?: 'Execution may be stalled'}"
+                log.debug "!! executor $name > No more task to compute -- ${session.dumpNetworkStatus() ?: 'Execution may be stalled'}"
                 return
             }
 
@@ -449,7 +452,7 @@ class TaskPollingMonitor implements TaskMonitor {
             log.debug msg.join('\n')
         }
         catch (Throwable e) {
-            log.debug "Oops.. expected exception", e
+            log.debug "Unexpected exception dumping run queue", e
         }
     }
 
@@ -470,7 +473,7 @@ class TaskPollingMonitor implements TaskMonitor {
             log.debug msg.join('\n')
         }
         catch (Throwable e) {
-            log.debug "Oops.. unexpected exception", e
+            log.debug "Unexpected exception dumping submit queue", e
         }
     }
 
@@ -581,6 +584,7 @@ class TaskPollingMonitor implements TaskMonitor {
                 handler.decProcessForks()
             }
             fault = handler.task.processor.resumeOrDie(handler?.task, error)
+            log.trace "Task fault (1): $fault"
         }
         finally {
             // abort the session if a task task was returned
@@ -607,13 +611,21 @@ class TaskPollingMonitor implements TaskMonitor {
         }
 
         // check if it is terminated
-        if( handler.checkIfCompleted() ) {
-            log.debug "Task completed > $handler"
+        boolean timeout=false
+        if( handler.checkIfCompleted() || (timeout=handler.isSubmitTimeout()) ) {
+            final state = timeout ? 'timed-out' : 'completed'
+            log.debug "Task $state > $handler"
             // decrement forks count
             handler.decProcessForks()
 
             // since completed *remove* the task from the processing queue
             evict(handler)
+
+            // check if submit timeout is reached
+            if( timeout ) {
+                try { handler.kill() } catch( Throwable t ) { log.warn("Unable to cancel task ${handler.task.lazyName()}", t) }
+                handler.task.error = new ProcessSubmitTimeoutException("Task '${handler.task.lazyName()}' could not be submitted within specified 'maxAwait' time: ${handler.task.config.getMaxSubmitAwait()}")
+            }
 
             // finalize the tasks execution
             final fault = handler.task.processor.finalizeTask(handler.task)

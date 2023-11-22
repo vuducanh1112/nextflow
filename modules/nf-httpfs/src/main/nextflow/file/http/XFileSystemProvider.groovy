@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2022, Seqera Labs
- * Copyright 2013-2019, Centre for Genomic Regulation (CRG)
+ * Copyright 2013-2023, Seqera Labs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +15,8 @@
  */
 
 package nextflow.file.http
+
+import static nextflow.file.http.XFileSystemConfig.*
 
 import java.nio.ByteBuffer
 import java.nio.channels.SeekableByteChannel
@@ -43,8 +44,11 @@ import java.util.concurrent.TimeUnit
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 import groovy.util.logging.Slf4j
+import nextflow.SysEnv
+import nextflow.extension.FilesEx
+import nextflow.file.FileHelper
+import nextflow.util.InsensitiveMap
 import sun.net.www.protocol.ftp.FtpURLConnection
-
 /**
  * Implements a read-only JSR-203 compliant file system provider for http/ftp protocols
  *
@@ -58,9 +62,11 @@ abstract class XFileSystemProvider extends FileSystemProvider {
 
     private Map<URI, FileSystem> fileSystemMap = new LinkedHashMap<>(20)
 
-    static public Set<String> ALL_SCHEMES = ['ftp','http','https'] as Set
+    private static final int[] REDIRECT_CODES = [301, 302, 307, 308]
 
-    static private int MAX_REDIRECT_HOPS = 5
+    protected static String config(String name, def defValue) {
+        return SysEnv.containsKey(name) ? SysEnv.get(name) : defValue.toString()
+    }
 
     static private URI key(String s, String a) {
         new URI("$s://$a")
@@ -172,26 +178,56 @@ abstract class XFileSystemProvider extends FileSystemProvider {
     protected URLConnection toConnection(Path path) {
         final url = path.toUri().toURL()
         log.trace "File remote URL: $url"
-        toConnection0(url, 0)
+        return toConnection0(url, 0)
     }
 
     protected URLConnection toConnection0(URL url, int attempt) {
         final conn = url.openConnection()
         conn.setRequestProperty("User-Agent", 'Nextflow/httpfs')
+        if( conn instanceof HttpURLConnection ) {
+            // by default HttpURLConnection does redirect only within the same host
+            // disable the built-in to implement custom redirection logic (see below)
+            conn.setInstanceFollowRedirects(false)
+        }
         if( url.userInfo ) {
             conn.setRequestProperty("Authorization", auth(url.userInfo));
         }
         else {
             XAuthRegistry.instance.authorize(conn)
         }
-        if ( conn instanceof HttpURLConnection && conn.getResponseCode() in [307, 308] && attempt < MAX_REDIRECT_HOPS) {
-            def header = conn.getHeaderFields()
-            String location = header.get("Location")?.get(0)
-            URL newPath = new URI(location).toURL()
-            log.debug "Remote redirect URL: $newPath"
-            return toConnection0(newPath, attempt+1)
+        if ( conn instanceof HttpURLConnection && conn.getResponseCode() in REDIRECT_CODES && attempt < MAX_REDIRECT_HOPS ) {
+            final header = InsensitiveMap.of(conn.getHeaderFields())
+            final location = header.get("Location")?.get(0)
+            log.debug "Remote redirect location: $location"
+            final newUrl = new URI(absLocation(location,url)).toURL()
+            if( url.protocol=='https' && newUrl.protocol=='http' )
+                throw new IOException("Refuse to follow redirection from HTTPS to HTTP (unsafe) URL - origin: $url - target: $newUrl")
+            return toConnection0(newUrl, attempt+1)
+        }
+        else if( conn instanceof HttpURLConnection && conn.getResponseCode() in config().retryCodes() && attempt < config().maxAttempts() ) {
+            final delay = (Math.pow(config().backOffBase(), attempt) as long) * config().backOffDelay()
+            log.debug "Got HTTP error=${conn.getResponseCode()} waiting for ${delay}ms (attempt=${attempt+1})"
+            Thread.sleep(delay)
+            return toConnection0(url, attempt+1)
+        }
+        else if( conn instanceof HttpURLConnection && conn.getResponseCode()==401 && attempt==0 ) {
+            if( XAuthRegistry.instance.refreshToken(conn) ) {
+                return toConnection0(url, attempt+1)
+            }
         }
         return conn
+    }
+
+    protected String absLocation(String location, URL target) {
+        assert location, "Missing location argument"
+        assert target, "Missing target URL argument"
+
+        final base = FileHelper.baseUrl(location)
+        if( base )
+            return location
+        if( !location.startsWith('/') )
+            location = '/' + location
+        return "${target.protocol}://${target.authority}$location"
     }
 
     @Override
@@ -295,7 +331,7 @@ abstract class XFileSystemProvider extends FileSystemProvider {
      *          method is invoked to check read access to the file.
      */
     @Override
-    public InputStream newInputStream(Path path, OpenOption... options)
+    InputStream newInputStream(Path path, OpenOption... options)
             throws IOException
     {
         if (path.class != XPath)
@@ -353,7 +389,7 @@ abstract class XFileSystemProvider extends FileSystemProvider {
 
     @Override
     DirectoryStream<Path> newDirectoryStream(Path dir, DirectoryStream.Filter<? super Path> filter) throws IOException {
-        throw new UnsupportedOperationException("Direcotry listing unsupported by ${getScheme().toUpperCase()} file system provider")
+        throw new UnsupportedOperationException("Directory listing unsupported by ${getScheme().toUpperCase()} file system provider")
     }
 
     @Override
@@ -414,7 +450,7 @@ abstract class XFileSystemProvider extends FileSystemProvider {
             def p = (XPath) path
             def attrs = (A)readHttpAttributes(p)
             if (attrs == null) {
-                throw new IOException("Unable to access path: ${p.toString()}")
+                throw new IOException("Unable to access path: ${FilesEx.toUriString(p)}")
             }
             return attrs
         }
@@ -423,7 +459,7 @@ abstract class XFileSystemProvider extends FileSystemProvider {
 
     @Override
     Map<String, Object> readAttributes(Path path, String attributes, LinkOption... options) throws IOException {
-        throw new UnsupportedOperationException("Read file attributes no supported by ${getScheme().toUpperCase()} file system provider")
+        throw new UnsupportedOperationException("Read file attributes not supported by ${getScheme().toUpperCase()} file system provider")
     }
 
     @Override
@@ -437,15 +473,16 @@ abstract class XFileSystemProvider extends FileSystemProvider {
             return new XFileAttributes(null,-1)
         }
         if ( conn instanceof HttpURLConnection && conn.getResponseCode() in [200, 301, 302, 307, 308]) {
-            def header = conn.getHeaderFields()
+            final header = conn.getHeaderFields()
             return readHttpAttributes(header)
         }
         return null
     }
 
     protected XFileAttributes readHttpAttributes(Map<String,List<String>> header) {
-        def lastMod = header.get("Last-Modified")?.get(0)
-        long contentLen = header.get("Content-Length")?.get(0)?.toLong() ?: -1
+        final header0 = InsensitiveMap.<String,List<String>>of(header)
+        def lastMod = header0.get("Last-Modified")?.get(0)
+        long contentLen = header0.get("Content-Length")?.get(0)?.toLong() ?: -1
         def dateFormat = new SimpleDateFormat('E, dd MMM yyyy HH:mm:ss Z', Locale.ENGLISH) // <-- make sure date parse is not language dependent (for the week day)
         def modTime = lastMod ? FileTime.from(dateFormat.parse(lastMod).time, TimeUnit.MILLISECONDS) : (FileTime)null
         new XFileAttributes(modTime, contentLen)

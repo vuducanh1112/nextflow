@@ -1,3 +1,20 @@
+/*
+ * Copyright 2013-2023, Seqera Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 package io.seqera.tower.plugin
 
 import nextflow.Session
@@ -74,9 +91,8 @@ class TowerReportsTest extends Specification {
         """.stripIndent()
 
         and: 'a tower reports instance'
-        def session = Spy(Session)
-        session.workDir >> launchDir.toPath()
-        def reports = Spy(new TowerReports(session))
+        def session = new Session()
+        TowerReports reports = Spy(TowerReports, constructorArgs: [session])
         reports.launchDir >> launchDir.toPath()
 
         and: 'some reports'
@@ -100,7 +116,6 @@ class TowerReportsTest extends Specification {
                 "multiqc_report.html\t${repo1.toPath().toUriString()}\t4\tMultiQC HTML report\t\n" +
                 "deseq2.plots.pdf\t${repo2.toPath().toUriString()}\t3\tAll samples STAR Salmon DESeq2 QC PDF plots\tapplication/pdf\n" +
                 "*.merged.gene_counts.tsv\t${repo3.toPath().toUriString()}\t3\tAll samples STAR Salmon merged gene raw counts\t\n"
-
 
     }
 

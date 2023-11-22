@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2022, Seqera Labs
- * Copyright 2013-2019, Centre for Genomic Regulation (CRG)
+ * Copyright 2013-2023, Seqera Labs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,6 +39,7 @@ import groovyx.gpars.GParsConfig
 import groovyx.gpars.dataflow.operator.DataflowProcessor
 import nextflow.cache.CacheDB
 import nextflow.cache.CacheFactory
+import nextflow.conda.CondaConfig
 import nextflow.config.Manifest
 import nextflow.container.ContainerConfig
 import nextflow.dag.DAG
@@ -52,7 +52,8 @@ import nextflow.executor.ExecutorFactory
 import nextflow.extension.CH
 import nextflow.file.FileHelper
 import nextflow.file.FilePorter
-import nextflow.file.FileTransferPool
+import nextflow.util.Threads
+import nextflow.util.ThreadPoolManager
 import nextflow.plugin.Plugins
 import nextflow.processor.ErrorStrategy
 import nextflow.processor.TaskFault
@@ -66,6 +67,7 @@ import nextflow.script.ScriptFile
 import nextflow.script.ScriptMeta
 import nextflow.script.ScriptRunner
 import nextflow.script.WorkflowMetadata
+import nextflow.spack.SpackConfig
 import nextflow.trace.AnsiLogObserver
 import nextflow.trace.TraceObserver
 import nextflow.trace.TraceObserverFactory
@@ -77,6 +79,7 @@ import nextflow.util.Duration
 import nextflow.util.HistoryFile
 import nextflow.util.NameGenerator
 import nextflow.util.VersionNumber
+import org.apache.commons.lang.exception.ExceptionUtils
 import sun.misc.Signal
 import sun.misc.SignalHandler
 /**
@@ -184,6 +187,26 @@ class Session implements ISession {
      */
     String commitId
 
+    /*
+     * Disable the upload of project 'bin' directory when using cloud executor
+     */
+    boolean disableRemoteBinDir
+
+    /**
+     * Suppress all output from pipeline script
+     */
+    boolean quiet
+
+    /**
+     * Enable debugging mode
+     */
+    boolean debug
+
+    /**
+     * Defines the cloud path where store cache meta-data
+     */
+    Path cloudCachePath
+
     /**
      * Local path where script generated classes are saved
      */
@@ -238,11 +261,11 @@ class Session implements ISession {
 
     boolean getStatsEnabled() { statsEnabled }
 
-    private boolean dumpHashes
+    private String dumpHashes
 
     private List<String> dumpChannels
 
-    boolean getDumpHashes() { dumpHashes }
+    String getDumpHashes() { dumpHashes }
 
     List<String> getDumpChannels() { dumpChannels }
 
@@ -328,7 +351,7 @@ class Session implements ISession {
         else {
            uniqueId = systemEnv.get('NXF_UUID') ? UUID.fromString(systemEnv.get('NXF_UUID')) : UUID.randomUUID()
         }
-        log.debug "Session uuid: $uniqueId"
+        log.debug "Session UUID: $uniqueId"
 
         // -- set the run name
         this.runName = config.runName ?: NameGenerator.next()
@@ -357,9 +380,23 @@ class Session implements ISession {
         this.workDir = ((config.workDir ?: 'work') as Path).complete()
         this.setLibDir( config.libDir as String )
 
+        // -- init cloud cache path
+        this.cloudCachePath = cloudCachePath(config.cloudcache as Map, workDir)
+
         // -- file porter config
         this.filePorter = new FilePorter(this)
 
+    }
+
+    protected Path cloudCachePath(Map cloudcache, Path workDir) {
+        if( !cloudcache?.enabled )
+            return null
+        final String path = cloudcache.path
+        final result = path ? FileHelper.asPath(path) : workDir
+        if( result.scheme !in ['s3','az','gs'] ) {
+            throw new IllegalArgumentException("Storage path not supported by Cloud-cache - offending value: '${result}'")
+        }
+        return result
     }
 
     /**
@@ -383,6 +420,7 @@ class Session implements ISession {
         }
 
         // set the byte-code target directory
+        this.disableRemoteBinDir = getExecConfigProp(null, 'disableRemoteBinDir', false)
         this.classesDir = FileHelper.createLocalDir()
         this.runtimeVerifier = new RuntimeVerifier() //TODO we might need config
         File contractConfig = new File("contract.config")
@@ -488,13 +526,13 @@ class Session implements ISession {
     }
 
     private void callIgniters() {
-        log.debug "Ignite dataflow network (${igniters.size()})"
+        log.debug "Igniting dataflow network (${igniters.size()})"
         for( Closure action : igniters ) {
             try {
                 action.call()
             }
             catch( Exception e ) {
-                log.error(e.message ?: "Failed to trigger dataflow network", e)
+                log.error(e.message ?: "Failed to ignite dataflow network", e)
                 abort(e)
                 break
             }
@@ -512,19 +550,21 @@ class Session implements ISession {
             msg ? "The following nodes are still active:\n" + msg : null
         }
         catch( Exception e ) {
-            log.debug "Unexpected error dumping DGA status", e
+            log.debug "Unexpected error while dumping DAG status", e
             return null
         }
     }
 
     Session start() {
-        log.debug "Session start invoked"
+        log.debug "Session start"
 
         // register shut-down cleanup hooks
         registerSignalHandlers()
 
         // create tasks executor
-        execService = Executors.newFixedThreadPool(poolSize)
+        execService = Threads.useVirtual()
+                ? Executors.newVirtualThreadPerTaskExecutor()
+                : Executors.newFixedThreadPool(poolSize)
 
         // signal start to trace observers
         notifyFlowCreate()
@@ -638,23 +678,21 @@ class Session implements ISession {
     void await() {
         log.debug "Session await"
         processesBarrier.awaitCompletion()
-        log.debug "Session await > all process finished"
+        log.debug "Session await > all processes finished"
         terminated = true
         monitorsBarrier.awaitCompletion()
         log.debug "Session await > all barriers passed"
         if( !aborted ) {
             joinAllOperators()
-            log.trace "Session > after processors join"
+            log.trace "Session > all operators finished"
         }
     }
 
     void destroy() {
         try {
             log.trace "Session > destroying"
-            // note: the file transfer pool must be terminated before
-            // invoking the shutdown callback to prevent depending pool (e.g. s3 transfer pool)
-            // are terminated while some file still needs to be download/uploaded
-            FileTransferPool.shutdown(aborted)
+            // shutdown publish dir executor
+            publishPoolManager.shutdown(aborted)
             // invoke shutdown callbacks
             shutdown0()
             log.trace "Session > after cleanup"
@@ -715,9 +753,6 @@ class Session implements ISession {
 
         // -- invoke observers completion handlers
         notifyFlowComplete()
-
-        // -- global
-        Global.cleanUp()
     }
 
     /**
@@ -787,8 +822,7 @@ class Session implements ISession {
         }
     }
 
-    @PackageScope
-    void forceTermination() {
+    protected void forceTermination() {
         terminated = true
         processesBarrier.forceTermination()
         monitorsBarrier.forceTermination()
@@ -838,6 +872,10 @@ class Session implements ISession {
         else {
             log.debug "Config process names validation disabled as requested"
         }
+    }
+
+    boolean enableModuleBinaries() {
+        config.navigate('nextflow.enable.moduleBinaries', false) as boolean
     }
 
     @PackageScope VersionNumber getCurrentVersion() {
@@ -891,11 +929,12 @@ class Session implements ISession {
         def keys = (config.process as Map).keySet()
         for(String key : keys) {
             String name = null
-            if( key.startsWith('$') ) {
-                name = key.substring(1)
-            }
-            else if( key.startsWith('withName:') ) {
+            if( key.startsWith('withName:') ) {
                 name = key.substring('withName:'.length())
+            }
+            else if( key.startsWith('$') ) {
+                name = key.substring(1)
+                log.warn1 "Process config \$${name} is deprecated, use withName:'${name}' instead"
             }
             if( name )
                 checkValidProcessName(processNames, name, result)
@@ -929,8 +968,10 @@ class Session implements ISession {
      * @param Closure
      */
     void onShutdown( Runnable hook ) {
-        if( !hook )
+        if( !hook ) {
+            log.warn "Shutdown hook cannot be null\n${ExceptionUtils.getStackTrace(new Exception())}"
             return
+        }
         if( shutdownInitiated )
             throw new IllegalStateException("Session shutdown already initiated — Hook cannot be added: $hook")
         shutdownCallbacks.add(hook)
@@ -961,10 +1002,11 @@ class Session implements ISession {
     }
 
     void notifyTaskPending( TaskHandler handler ) {
+        final trace = handler.getTraceRecord()
         for( int i=0; i<observers.size(); i++ ) {
             final observer = observers.get(i)
             try {
-                observer.onProcessPending(handler, handler.getTraceRecord())
+                observer.onProcessPending(handler, trace)
             }
             catch( Exception e ) {
                 log.debug(e.getMessage(), e)
@@ -981,10 +1023,11 @@ class Session implements ISession {
         // -- save a record in the cache index
         cache.putIndexAsync(handler)
 
+        final trace = handler.getTraceRecord()
         for( int i=0; i<observers.size(); i++ ) {
             final observer = observers.get(i)
             try {
-                observer.onProcessSubmit(handler, handler.getTraceRecord())
+                observer.onProcessSubmit(handler, trace)
             }
             catch( Exception e ) {
                 log.debug(e.getMessage(), e)
@@ -996,10 +1039,11 @@ class Session implements ISession {
      * Notifies task start event
      */
     void notifyTaskStart( TaskHandler handler ) {
+        final trace = handler.getTraceRecord()
         for( int i=0; i<observers.size(); i++ ) {
             final observer = observers.get(i)
             try {
-                observer.onProcessStart(handler, handler.getTraceRecord())
+                observer.onProcessStart(handler, trace)
             }
             catch( Exception e ) {
                 log.debug(e.getMessage(), e)
@@ -1014,7 +1058,7 @@ class Session implements ISession {
      */
     void notifyTaskComplete( TaskHandler handler ) {
         // save the completed task in the cache DB
-        final trace = handler.getTraceRecord()
+        final trace = handler.safeTraceRecord()
         cache.putTaskAsync(handler, trace)
 
         // notify the event to the observers
@@ -1064,11 +1108,11 @@ class Session implements ISession {
         observers.each { trace -> trace.onFlowCreate(this) }
     }
 
-    void notifyFilePublish(Path destination) {
+    void notifyFilePublish(Path destination, Path source=null) {
         def copy = new ArrayList<TraceObserver>(observers)
         for( TraceObserver observer : copy  ) {
             try {
-                observer.onFilePublish(destination)
+                observer.onFilePublish(destination, source)
             }
             catch( Exception e ) {
                 log.error "Failed to invoke observer on file publish: $observer", e
@@ -1097,10 +1141,11 @@ class Session implements ISession {
      */
     void notifyError( TaskHandler handler ) {
 
+        final trace = handler?.safeTraceRecord()
         for ( int i=0; i<observers?.size(); i++){
             try{
                 final observer = observers.get(i)
-                observer.onFlowError(handler, handler?.getTraceRecord())
+                observer.onFlowError(handler, trace)
             } catch ( Throwable e ) {
                 log.debug(e.getMessage(), e)
             }
@@ -1110,7 +1155,7 @@ class Session implements ISession {
             return
 
         try {
-            errorAction.call( handler?.getTraceRecord() )
+            errorAction.call(trace)
         }
         catch( Throwable e ) {
             log.debug(e.getMessage(), e)
@@ -1156,37 +1201,74 @@ class Session implements ISession {
         }
     }
 
-    /**
-     * @return A {@link ContainerConfig} object representing the container engine configuration defined in config object
-     */
     @Memoized
-    ContainerConfig getContainerConfig() {
-
-        def engines = new LinkedList<Map>()
-        getContainerConfig0('docker', engines)
-        getContainerConfig0('podman', engines)
-        getContainerConfig0('shifter', engines)
-        getContainerConfig0('udocker', engines)
-        getContainerConfig0('singularity', engines)
-        getContainerConfig0('charliecloud', engines)
-
-        def enabled = engines.findAll { it.enabled?.toString() == 'true' }
-        if( enabled.size() > 1 ) {
-            def names = enabled.collect { it.engine }
-            throw new IllegalConfigException("Cannot enable more than one container engine -- Choose either one of: ${names.join(', ')}")
-        }
-
-        (enabled ? enabled.get(0) : ( engines ? engines.get(0) : [engine:'docker'] )) as ContainerConfig
+    CondaConfig getCondaConfig() {
+        final cfg = config.conda as Map ?: Collections.emptyMap()
+        return new CondaConfig(cfg, getSystemEnv())
     }
 
+    @Memoized
+    SpackConfig getSpackConfig() {
+        final cfg = config.spack as Map ?: Collections.emptyMap()
+        return new SpackConfig(cfg, getSystemEnv())
+    }
+
+    /**
+     * Get the container engine configuration for the specified engine. If no engine is specified
+     * if returns the one enabled in the configuration file. If no configuration is found
+     * defaults to {@code docker} engine.
+     *
+     * @param engine
+     *      The container engine name for which
+     * @return
+     *      A {@link ContainerConfig} object representing the container engine configuration defined in config object
+     */
+    @Memoized
+    ContainerConfig getContainerConfig(String engine) {
+
+        final allEngines = new LinkedList<Map>()
+        getContainerConfig0('docker', allEngines)
+        getContainerConfig0('podman', allEngines)
+        getContainerConfig0('sarus', allEngines)
+        getContainerConfig0('shifter', allEngines)
+        getContainerConfig0('udocker', allEngines)
+        getContainerConfig0('singularity', allEngines)
+        getContainerConfig0('apptainer', allEngines)
+        getContainerConfig0('charliecloud', allEngines)
+
+        if( engine ) {
+            final result = allEngines.find(it -> it.engine==engine) ?: [engine: engine]
+            return new ContainerConfig(result)
+        }
+
+        final enabled = allEngines.findAll(it -> it.enabled?.toString() == 'true')
+        if( enabled.size() > 1 ) {
+            final names = enabled.collect(it -> it.engine)
+            throw new IllegalConfigException("Cannot enable more than one container engine -- Choose either one of: ${names.join(', ')}")
+        }
+        if( enabled ) {
+            return new ContainerConfig(enabled.get(0))
+        }
+        if( allEngines ) {
+            return new ContainerConfig(allEngines.get(0))
+        }
+        return new ContainerConfig(engine:'docker')
+    }
+
+    ContainerConfig getContainerConfig() {
+        return getContainerConfig(null)
+    }
 
     private void getContainerConfig0(String engine, List<Map> drivers) {
-        def config = this.config?.get(engine)
-        if( config instanceof Map ) {
-            config.engine = engine
-            drivers << config
+        assert engine
+        final entry = this.config?.get(engine)
+        if( entry instanceof Map ) {
+            final config0 = new LinkedHashMap()
+            config0.putAll((Map)entry)
+            config0.put('engine', engine)
+            drivers.add(config0)
         }
-        else if( config!=null ) {
+        else if( entry!=null ) {
             log.warn "Malformed configuration for container engine '$engine' -- One or more attributes should be provided"
         }
     }
@@ -1234,7 +1316,6 @@ class Session implements ISession {
         new HashMap<String, String>(System.getenv())
     }
 
-
     @CompileDynamic
     def fetchContainers() {
 
@@ -1245,7 +1326,15 @@ class Session implements ISession {
              * look for `container` definition at process level
              */
             config.process.each { String name, value ->
-                if( name.startsWith('$') && value instanceof Map && value.container ) {
+                if( name.startsWith('withName:') ) {
+                    name = name.substring('withName:'.length())
+                }
+                else if( name.startsWith('$') ) {
+                    name = name.substring(1)
+                    log.warn1 "Process config \$${name} is deprecated, use withName:'${name}' instead"
+                }
+
+                if( value instanceof Map && value.container ) {
                     result[name] = resolveClosure(value.container)
                 }
             }
@@ -1361,6 +1450,15 @@ class Session implements ISession {
 
     void printConsole(Path file) {
         ansiLogObserver ? ansiLogObserver.appendInfo(file.text) : Files.copy(file, System.out)
+    }
+
+    private ThreadPoolManager publishPoolManager = new ThreadPoolManager('PublishDir')
+
+    @Memoized
+    synchronized ExecutorService publishDirExecutorService() {
+        return publishPoolManager
+                .withConfig(config)
+                .create()
     }
 
 }

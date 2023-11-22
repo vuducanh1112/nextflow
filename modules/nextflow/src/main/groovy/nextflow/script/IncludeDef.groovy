@@ -1,6 +1,5 @@
 /*
- * Copyright 2020-2022, Seqera Labs
- * Copyright 2013-2019, Centre for Genomic Regulation (CRG)
+ * Copyright 2013-2023, Seqera Labs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +17,7 @@
 package nextflow.script
 
 import nextflow.exception.ScriptCompilationException
-import nextflow.extension.ChannelExtensionProvider
+import nextflow.plugin.extension.PluginExtensionProvider
 import nextflow.plugin.Plugins
 
 import java.nio.file.NoSuchFileException
@@ -218,8 +217,8 @@ class IncludeDef {
         if( !Plugins.isStarted(pluginId) )
             throw new IllegalArgumentException("Unable start plugin with Id '$pluginId'")
         final Map<String,String> declaredNames = this.modules.collectEntries {[it.name, it.alias ?: it.name]}
-        log.debug "Load included plugin extensions with names: $declaredNames; plugin Id: $pluginId"
-        ChannelExtensionProvider.INSTANCE().loadPluginExtensionMethods(pluginId, declaredNames)
+        log.debug "Loading included plugin extensions with names: $declaredNames; plugin Id: $pluginId"
+        PluginExtensionProvider.INSTANCE().loadPluginExtensionMethods(pluginId, declaredNames)
     }
 
 }
