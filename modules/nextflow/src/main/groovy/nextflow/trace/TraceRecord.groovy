@@ -101,7 +101,7 @@ class TraceRecord implements Serializable {
             //contracts mesurements
             pre_guard_duration: 'time',
             main_duration: 'time',
-            post_guard_duration: 'time'
+            post_guard_duration: 'time',
             vol_ctxt: 'num',        // -- /proc/$pid/status field 'voluntary_ctxt_switches'
             inv_ctxt: 'num',        // -- /proc/$pid/status field 'nonvoluntary_ctxt_switches'
             hostname: 'str',
