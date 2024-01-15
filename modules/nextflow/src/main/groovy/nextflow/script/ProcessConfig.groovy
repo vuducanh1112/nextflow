@@ -981,38 +981,26 @@ class ProcessConfig implements Map<String,Object>, Cloneable {
     }
 
     ProcessConfig require( value ) {
-        if( value instanceof String ) {
-            configProperties.put('require', [value : ContractLevel.always] as Map<String, ContractLevel>)
-        }
-        else if( value instanceof List<Object> ) {
-            Map<String, ContractLevel> parsedValues = [:]
-            for (contract in value) {
-                if (contract instanceof ContractDSL.Contract) {
-                    parsedValues.put(contract.command, contract.level)
-                }
-                else if (contract instanceof String){
-                    parsedValues.put(contract, ContractLevel.always)
-                }
-                else if (value != null){
-                    throw new IllegalArgumentException("Not a valid `require` directive value: $value [${value.getClass().getName()}]")
-                }
-            }
-            if (parsedValues.any { it.value == null || it.value == ContractLevel.never }) {
-                throw new IllegalArgumentException("Not a valid `require` directive value: $value [${value.getClass().getName()}]")
-            }
-            configProperties.put('require', parsedValues)
-        }
-        else if( value != null )
-            throw new IllegalArgumentException("Not a valid `require` directive value: $value [${value.getClass().getName()}]")
-        return this
+        return parseRequirePromiseValue('require', value)
     }
 
     ProcessConfig promise( value) {
+        return parseRequirePromiseValue('promise', value)
+    }
+
+    private ProcessConfig parseRequirePromiseValue(String contract_type, value){
+
+        assert(contract_type == 'require' || contract_type == 'promise')
+
+        Map<String, ContractLevel> parsedValues = [:]
+
         if( value instanceof String ) {
-            configProperties.put('promise', [value : ContractLevel.always] as Map<String, ContractLevel>)
+            parsedValues.put(value, ContractLevel.always)
+        }
+        else if (value instanceof GString){
+            parsedValues.put(value.toString(), ContractLevel.always)
         }
         else if( value instanceof List<Object> ) {
-            Map<String, ContractLevel> parsedValues = [:]
             for (contract in value) {
                 if (contract instanceof ContractDSL.Contract) {
                     parsedValues.put(contract.command, contract.level)
@@ -1020,17 +1008,23 @@ class ProcessConfig implements Map<String,Object>, Cloneable {
                 else if (contract instanceof String){
                     parsedValues.put(contract, ContractLevel.always)
                 }
+                else if (contract instanceof GString){
+                    parsedValues.put(contract.toString(), ContractLevel.always )
+                }
+
                 else if (value != null){
-                    throw new IllegalArgumentException("Not a valid `promise` directive value: $value [${value.getClass().getName()}]")
+                    throw new IllegalArgumentException("Not a valid $contract_type directive value: $value [${value.getClass().getName()}]")
                 }
             }
             if (parsedValues.any { it.value == null || it.value == ContractLevel.never }) {
-                throw new IllegalArgumentException("Not a valid `promise` directive value: $value [${value.getClass().getName()}]")
+                throw new IllegalArgumentException("Not a valid $contract_type directive value: $value [${value.getClass().getName()}]")
             }
-            configProperties.put('promise', parsedValues)
         }
         else if( value != null )
-            throw new IllegalArgumentException("Not a valid `promise` directive value: $value [${value.getClass().getName()}]")
+            throw new IllegalArgumentException("Not a valid $contract_type directive value: $value [${value.getClass().getName()}]")
+
+        configProperties.put(contract_type, parsedValues)
+
         return this
     }
 
