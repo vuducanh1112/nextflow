@@ -638,6 +638,10 @@ class TaskProcessor {
         if( checkStoredOutput(task) )
             return
 
+        // render contract code
+        task.renderContracts()
+
+
         def hash = createTaskHashKey(task)
         checkCachedOrLaunchTask(task, hash, resumable)
     }

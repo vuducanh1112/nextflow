@@ -805,8 +805,11 @@ class TaskRun implements Cloneable {
                 engine.setPlaceholder(placeholderChar())
             }
             // eval the template string
+            //log.error "Source: ${source}"
+            //log.error "Context: ${context}"
             engine.eval(source, context)
             templateVars = engine.getVariableNames()
+            //log.error "Vars. ${templateVars}"
             return engine.result
         }
         catch( NoSuchFileException e ) {
@@ -821,12 +824,16 @@ class TaskRun implements Cloneable {
         }
     }
 
-    final protected String renderScript( script ) {
+    final protected String renderScript( script , boolean isContractScript = false) {
 
         final engine = new TaskTemplateEngine(processor.@grengine)
-                .setPlaceholder(placeholderChar())
+
+        if(!isContractScript) {
+            engine.setPlaceholder(placeholderChar())
                 .setEnableShortNotation(false)
-                .eval(script.toString(), context)
+        }
+
+        engine.eval(script.toString(), context)
         // fetch the template vars
         templateVars = engine.getVariableNames()
         // finally return the evaluated string
@@ -897,6 +904,30 @@ class TaskRun implements Cloneable {
 
     TaskBean toTaskBean() {
         return new TaskBean(this)
+    }
+
+    @PackageScope void renderContracts() {
+        def requirements = config.getPreGuard()
+
+        if(requirements){
+            requirements = requirements.collectEntries {contract, contractLevel ->
+                def renderedScript = renderScript(contract, true)
+                [renderedScript, contractLevel]
+            }
+
+            config.put('require', requirements)
+        }
+
+        def promises = config.getPostGuard()
+
+        if(promises){
+            promises = promises.collectEntries {contract, contractLevel ->
+                def renderedScript = renderScript(contract, true)
+                [renderedScript, contractLevel]
+            }
+
+            config.put('promises', promises)
+        }
     }
 }
 
